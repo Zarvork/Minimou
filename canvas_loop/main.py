@@ -1,5 +1,3 @@
-
-
 import pygame
 import pygame_gui
 import pygame_widgets
@@ -16,7 +14,7 @@ BUTTON_HEIGHT = 50
 MAX_HISTORY = 20
 
 
-texts = [
+TEXTS = [
     "BLACK",
     "GREY",
     "BROWN",
@@ -58,7 +56,7 @@ def push_canvas_state(states, index, canvas):
 
 
 class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
-    """Confirmation window used before clearing the canvas."""
+    """Confirmation window shown before clearing the canvas."""
 
     def __init__(self, rect, manager, on_confirm, on_close):
         super().__init__(
@@ -74,9 +72,12 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
 
         container = self.get_container()
 
-        self.message = pygame_gui.elements.UILabel(
+        pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect(
-                30, 30, rect.width - 60, 70
+                30,
+                30,
+                rect.width - 60,
+                70
             ),
             text="Are you sure you want to clear the canvas?",
             manager=manager,
@@ -85,7 +86,10 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
 
         self.confirm_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(
-                30, 120, rect.width - 60, 55
+                30,
+                120,
+                rect.width - 60,
+                55
             ),
             text="CLEAR",
             manager=manager,
@@ -94,7 +98,10 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
 
         self.cancel_button = pygame_gui.elements.UIButton(
             relative_rect=pygame.Rect(
-                30, 190, rect.width - 60, 55
+                30,
+                190,
+                rect.width - 60,
+                55
             ),
             text="CANCEL",
             manager=manager,
@@ -102,6 +109,7 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
         )
 
     def process_event(self, event):
+
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
 
             if event.ui_element == self.confirm_button:
@@ -119,11 +127,7 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
 
 
 class ChallengeWindow(pygame_gui.elements.UIWindow):
-    """
-    Window containing the three challenge difficulties.
-
-    The buttons currently call placeholder callbacks.
-    """
+    """Window containing the three challenge difficulty buttons."""
 
     def __init__(
         self,
@@ -147,7 +151,7 @@ class ChallengeWindow(pygame_gui.elements.UIWindow):
 
         container = self.get_container()
 
-        self.message = pygame_gui.elements.UILabel(
+        pygame_gui.elements.UILabel(
             relative_rect=pygame.Rect(
                 30,
                 30,
@@ -218,12 +222,14 @@ class ChallengeWindow(pygame_gui.elements.UIWindow):
 
 
 def main():
+
     pygame.init()
 
     screen = pygame.display.set_mode((1280, 720))
     width, height = screen.get_size()
 
     clock = pygame.time.Clock()
+
     running = True
     dt = 0
 
@@ -231,7 +237,12 @@ def main():
     # Drawing state
     # =========================================================
 
-    drawing_color = "#000000"
+    selected_color = pygame.Color("#000000")
+
+    # The colour currently being used to draw.
+    # This can temporarily be white when the eraser is selected.
+    drawing_color = pygame.Color(selected_color)
+
     brush_type = "circle"
 
     last_pos = None
@@ -242,11 +253,16 @@ def main():
     # Canvas
     # =========================================================
 
-    canvas = pygame.Surface((width, height))
-    canvas.fill("#ffffff")
+    canvas = pygame.Surface(
+        (width, height)
+    )
+
+    canvas.fill(
+        pygame.Color("#ffffff")
+    )
 
     # =========================================================
-    # Pygame GUI
+    # pygame_gui
     # =========================================================
 
     manager = pygame_gui.UIManager(
@@ -258,29 +274,46 @@ def main():
     # Image brush
     # =========================================================
 
-    raw_baptiste = pygame.image.load(
-        "baptiste.jpg"
-    ).convert()
+    try:
+        raw_baptiste = pygame.image.load(
+            "baptiste.jpg"
+        ).convert()
+    except pygame.error as error:
+
+        print(
+            "Could not load baptiste.jpg:"
+        )
+        print(error)
+
+        raw_baptiste = pygame.Surface(
+            (100, 100)
+        )
+
+        raw_baptiste.fill(
+            pygame.Color("#888888")
+        )
 
     image_brush_cache = {}
 
     def make_circular_brush(size):
         """
-        Create a circular Baptiste image brush.
+        Create a circular image brush.
 
-        The source image is cropped to a square, resized and
-        masked into a circle.
-
-        Resized brushes are cached so the JPEG does not need
-        to be processed repeatedly while drawing.
+        The source image is cropped to a square,
+        resized and masked into a circle.
         """
 
-        size = max(1, int(size))
+        size = max(
+            1,
+            int(size)
+        )
 
         if size in image_brush_cache:
             return image_brush_cache[size]
 
-        source_width, source_height = raw_baptiste.get_size()
+        source_width, source_height = (
+            raw_baptiste.get_size()
+        )
 
         crop_size = min(
             source_width,
@@ -304,20 +337,20 @@ def main():
             )
         ).copy()
 
-        brush_diameter = size * 2
+        diameter = size * 2
 
         brush = pygame.transform.smoothscale(
             cropped,
             (
-                brush_diameter,
-                brush_diameter
+                diameter,
+                diameter
             )
         ).convert_alpha()
 
         mask = pygame.Surface(
             (
-                brush_diameter,
-                brush_diameter
+                diameter,
+                diameter
             ),
             pygame.SRCALPHA
         )
@@ -343,7 +376,10 @@ def main():
         return brush
 
     def draw_image_brush(position, size):
-        brush = make_circular_brush(size)
+
+        brush = make_circular_brush(
+            size
+        )
 
         brush_rect = brush.get_rect(
             center=position
@@ -401,7 +437,7 @@ def main():
     )
 
     # =========================================================
-    # Undo / redo buttons
+    # Undo / redo
     # =========================================================
 
     undo_width = 80
@@ -435,13 +471,16 @@ def main():
     )
 
     # =========================================================
-    # Challenge button
+    # Challenge
     # =========================================================
 
     challenge_button_width = 130
 
     challenge_button_layout = pygame.Rect(
-        width - BUTTON_WIDTH - 2 * undo_width - challenge_button_width,
+        width
+        - BUTTON_WIDTH
+        - 2 * undo_width
+        - challenge_button_width,
         0,
         challenge_button_width,
         BUTTON_HEIGHT
@@ -455,25 +494,32 @@ def main():
     )
 
     # =========================================================
-    # Color picker button
+    # Color picker
     # =========================================================
 
     color_picker_button_layout = pygame.Rect(
         width - BUTTON_WIDTH,
-        height - 2 * BUTTON_HEIGHT - 50,
+        height - BUTTON_HEIGHT,
         BUTTON_WIDTH,
         BUTTON_HEIGHT
     )
 
     color_picker_button = UIButton(
         relative_rect=color_picker_button_layout,
-        text="Color",
+        text="",
         manager=manager,
         object_id="#color_picker_button"
     )
 
+    color_picker_display_color = pygame.Color("#000000")
+
+
+    def update_color_picker_button(color):
+        nonlocal color_picker_display_color
+        color_picker_display_color = pygame.Color(color)
+
     # =========================================================
-    # Right-side controls
+    # Clear button
     # =========================================================
 
     clear_button_layout = pygame.Rect(
@@ -491,71 +537,75 @@ def main():
     )
 
     # =========================================================
-    # Color buttons
+    # Eraser
+    #
+    # The eraser image is NOT placed inside the pygame_gui
+    # button. Instead, the button is only used as a transparent
+    # click target and the icon is drawn manually.
+    #
+    # This prevents theme.json from replacing the icon when
+    # the mouse hovers over the button.
     # =========================================================
 
     erase_button_layout = pygame.Rect(
         width - BUTTON_WIDTH,
-        height - BUTTON_HEIGHT,
+        height - 2 * BUTTON_HEIGHT - 1,
         BUTTON_WIDTH,
         BUTTON_HEIGHT
     )
 
     erase_button = UIButton(
         relative_rect=erase_button_layout,
-        text="erase",
+        text="",
         manager=manager,
-        object_id="#clear_button"
+        object_id="#eraser_button"
     )
 
-    raw_eraser = pygame.image.load(
-        "eraser.png"
-    ).convert_alpha()
+    try:
 
-    eraser_size = (
-        BUTTON_WIDTH - 20,
-        40
-    )
+        raw_eraser = pygame.image.load(
+            "eraser.png"
+        ).convert_alpha()
 
-    eraser_icon = pygame.transform.smoothscale(
-        raw_eraser,
-        eraser_size
-    )
+        eraser_icon = pygame.transform.smoothscale(
+            raw_eraser,
+            (
+                BUTTON_WIDTH - 20,
+                40
+            )
+        )
 
-    erase_button.image = eraser_icon
+    except pygame.error as error:
 
-    # Use a dark background for the eraser
-    # button so the white canvas does not
-    # make it disappear.
-    display_color = "#4a4a4a"
+        print(
+            "Could not load eraser.png:"
+        )
+        print(error)
 
-    pygame_color = pygame.Color(
-        display_color
-    )
-
-    brightness = (
-        pygame_color.r * 299
-        + pygame_color.g * 587
-        + pygame_color.b * 114
-    ) / 1000
-
+        eraser_icon = pygame.Surface(
+            (
+                BUTTON_WIDTH - 20,
+                40
+            ),
+            pygame.SRCALPHA
+        )
 
     # =========================================================
     # Brush buttons
     # =========================================================
 
     circle_brush_button_layout = pygame.Rect(
-        0,
-        height - 100,
-        140,
-        50
+        width - BUTTON_WIDTH,
+        height - 3 * BUTTON_HEIGHT - 2,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT
     )
 
     image_brush_button_layout = pygame.Rect(
-        0,
-        height - 150,
-        140,
-        50
+        width - BUTTON_WIDTH,
+        height - 4 * BUTTON_HEIGHT - 3,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT
     )
 
     circle_brush_button = UIButton(
@@ -613,8 +663,10 @@ def main():
         of the screen.<br><br>
 
         <b>Color Picker</b><br>
-        Use the Color button at the top to choose any
-        custom RGB color.<br><br>
+        Use the Color button to choose any custom color.<br><br>
+
+        <b>Eraser</b><br>
+        Click the eraser button to draw with white.<br><br>
 
         <b>Brushes</b><br>
         Circle uses the normal drawing brush.
@@ -648,9 +700,12 @@ def main():
     current_state = 0
 
     def clear_canvas():
+
         nonlocal current_state
 
-        canvas.fill("#ffffff")
+        canvas.fill(
+            pygame.Color("#ffffff")
+        )
 
         current_state = push_canvas_state(
             canvas_states,
@@ -677,24 +732,23 @@ def main():
     # =========================================================
 
     def launch_challenge(difficulty):
-        """
-        Placeholder for the future challenge system.
 
-        This currently prints the selected difficulty and
-        displays a simple message on the canvas.
-        """
-
-        nonlocal canvas
         nonlocal current_state
 
         print(
             f"Challenge selected: {difficulty}"
         )
 
-        # Placeholder visual feedback.
-        canvas.fill("#ffffff")
+        # Placeholder for the future challenge.
 
-        font = pygame.font.Font(None, 64)
+        canvas.fill(
+            pygame.Color("#ffffff")
+        )
+
+        font = pygame.font.Font(
+            None,
+            64
+        )
 
         title = font.render(
             f"{difficulty} challenge",
@@ -747,7 +801,7 @@ def main():
         launch_challenge("HARD")
 
     # =========================================================
-    # UI collision helper
+    # UI collision
     # =========================================================
 
     def is_over_ui(pos):
@@ -756,11 +810,16 @@ def main():
             slider_rect.collidepoint(pos)
             or output_rect.collidepoint(pos)
 
+            or erase_button_layout.collidepoint(pos)
+
             or undo_button_layout.collidepoint(pos)
             or redo_button_layout.collidepoint(pos)
 
             or challenge_button_layout.collidepoint(pos)
+
             or color_picker_button_layout.collidepoint(pos)
+
+            or clear_button_layout.collidepoint(pos)
 
             or circle_brush_button_layout.collidepoint(pos)
             or image_brush_button_layout.collidepoint(pos)
@@ -779,7 +838,9 @@ def main():
     # =========================================================
 
     def close_confirmation():
+
         nonlocal confirmation_dialog
+
         confirmation_dialog = None
 
     # =========================================================
@@ -798,10 +859,17 @@ def main():
         for event in events:
 
             # =================================================
+            # Let pygame_gui process the event ONCE
+            # =================================================
+
+            manager.process_events(event)
+
+            # =================================================
             # Quit
             # =================================================
 
             if event.type == pygame.QUIT:
+
                 running = False
 
             # =================================================
@@ -817,8 +885,13 @@ def main():
                     and color_picker is None
                     and not tutorial_box.visible
                 ):
+
                     is_drawing = True
                     last_pos = event.pos
+
+            # =================================================
+            # Mouse released
+            # =================================================
 
             if event.type == pygame.MOUSEBUTTONUP:
 
@@ -838,36 +911,51 @@ def main():
                 stroke_dirty = False
 
             # =================================================
-            # Clear confirmation close
+            # GUI window closed
             # =================================================
 
             if event.type == pygame_gui.UI_WINDOW_CLOSE:
 
                 if event.ui_element == confirmation_dialog:
+
                     confirmation_dialog = None
 
                 if event.ui_element == challenge_window:
+
                     challenge_window = None
 
                 if event.ui_element == color_picker:
+
                     color_picker = None
 
             # =================================================
-            # Colour picker result
+            # COLOR PICKER
+            # =================================================
+            #
+            # Do not require event.ui_element == color_picker.
+            #
+            # pygame_gui's colour picker can emit this event from
+            # one of its internal elements.
             # =================================================
 
             if event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
 
-                if event.ui_element == color_picker:
+                picked_color = pygame.Color(event.colour)
 
-                    picked_color = event.colour
+                # Remember the user's chosen colour.
+                # This is NOT changed by the eraser.
+                selected_color = pygame.Color(picked_color)
 
-                    drawing_color = picked_color
-                    color_picker_button.inactiveColour = picked_color
-                    color_picker_button.hoverColour = picked_color.lerp( pygame.Color("#000000"), 0.2 )
-                    color_picker_button.pressedColour = picked_color.lerp( pygame.Color("#000000"), 0.35 )
+                # Use the newly selected colour for drawing.
+                drawing_color = pygame.Color(picked_color)
 
-                    # Close the picker.
+                # Update the visible Color button.
+                update_color_picker_button(
+                    selected_color
+                )
+
+                if color_picker is not None:
+
                     color_picker.kill()
                     color_picker = None
 
@@ -917,9 +1005,7 @@ def main():
                             500
                         ),
                         manager=manager,
-                        initial_colour=pygame.Color(
-                            drawing_color
-                        ),
+                        initial_colour=selected_color,
                         window_title="Choose Color"
                     )
 
@@ -946,14 +1032,32 @@ def main():
                     )
 
                 # -------------------------------------------------
-                # Brush selection
+                # Circle brush
                 # -------------------------------------------------
 
                 if event.ui_element == circle_brush_button:
+
                     brush_type = "circle"
+                    drawing_color = pygame.Color(selected_color)
+
+                # -------------------------------------------------
+                # Baptiste brush
+                # -------------------------------------------------
 
                 if event.ui_element == image_brush_button:
+
                     brush_type = "image"
+                    drawing_color = pygame.Color(selected_color)
+
+                # -------------------------------------------------
+                # Eraser
+                # -------------------------------------------------
+
+                if event.ui_element == erase_button:
+
+                    drawing_color = pygame.Color(
+                        "#ffffff"
+                    )
 
                 # -------------------------------------------------
                 # Tutorial
@@ -962,8 +1066,11 @@ def main():
                 if event.ui_element == tutorial_button:
 
                     if tutorial_box.visible:
+
                         tutorial_box.hide()
+
                     else:
+
                         tutorial_box.show()
 
                 # -------------------------------------------------
@@ -983,6 +1090,7 @@ def main():
                         redo_button.enable()
 
                         if current_state == 0:
+
                             undo_button.disable()
 
                 # -------------------------------------------------
@@ -1008,16 +1116,11 @@ def main():
                             current_state
                             == len(canvas_states) - 1
                         ):
+
                             redo_button.disable()
 
-            # =================================================
-            # Let pygame_gui process the event
-            # =================================================
-
-            manager.process_events(event)
-
         # =====================================================
-        # Draw on canvas
+        # Draw
         # =====================================================
 
         if is_drawing:
@@ -1033,7 +1136,9 @@ def main():
 
                     distance = pygame.Vector2(
                         current_pos
-                    ).distance_to(last_pos)
+                    ).distance_to(
+                        last_pos
+                    )
 
                     step = max(
                         drawing_size / 4,
@@ -1045,7 +1150,9 @@ def main():
                         1
                     )
 
-                    for i in range(steps + 1):
+                    for i in range(
+                        steps + 1
+                    ):
 
                         t = i / steps
 
@@ -1071,7 +1178,7 @@ def main():
                         )
 
                         # -----------------------------------------
-                        # Circle brush
+                        # Circle
                         # -----------------------------------------
 
                         if brush_type == "circle":
@@ -1084,7 +1191,7 @@ def main():
                             )
 
                         # -----------------------------------------
-                        # Baptiste image brush
+                        # Baptiste
                         # -----------------------------------------
 
                         elif brush_type == "image":
@@ -1110,13 +1217,84 @@ def main():
         manager.update(dt)
         manager.draw_ui(screen)
 
+        color = color_picker_display_color
+
+        # Slight darkening for the border
+        border_color = color.lerp(
+            pygame.Color("#000000"),
+            0.25
+        )
+
+        pygame.draw.rect(
+            screen,
+            border_color,
+            color_picker_button_layout,
+            border_radius=4
+        )
+
+        inner_rect = color_picker_button_layout.inflate(
+            -4,
+            -4
+        )
+
+        pygame.draw.rect(
+            screen,
+            color,
+            inner_rect,
+            border_radius=3
+        )
+
+        # Choose readable text colour
+        brightness = (
+            color.r * 299
+            + color.g * 587
+            + color.b * 114
+        ) / 1000
+
+        text_color = (
+            pygame.Color("#000000")
+            if brightness > 128
+            else pygame.Color("#ffffff")
+        )
+
+        font = pygame.font.Font(None, 28)
+
+        color_text = font.render(
+            "Color",
+            True,
+            text_color
+        )
+
+        screen.blit(
+            color_text,
+            color_text.get_rect(
+                center=color_picker_button_layout.center
+            )
+        )
+
         output.setText(
             str(slider.getValue())
         )
 
-        # pygame_widgets controls:
-        # slider, output and color buttons.
-        pygame_widgets.update(events)
+        pygame_widgets.update(
+            events
+        )
+
+        # =====================================================
+        # Draw eraser icon AFTER pygame_gui
+        #
+        # This is the important part. Since the icon is drawn
+        # after manager.draw_ui(), theme.json cannot overwrite it.
+        # =====================================================
+
+        eraser_rect = eraser_icon.get_rect(
+            center=erase_button_layout.center
+        )
+
+        screen.blit(
+            eraser_icon,
+            eraser_rect
+        )
 
         pygame.display.flip()
 
