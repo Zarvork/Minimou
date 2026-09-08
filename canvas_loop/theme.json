@@ -1,87 +1,118 @@
 {
-    "button": {
+    "#clear_button": {
         "colours": {
-            "normal_bg": "#25292e",
-            "hovered_bg": "#35393e",
-            "selected_bg": "#45494e",
-            "disabled_bg": "#25292e",
-
-            "normal_text": "#c5cbd8",
+            "normal_bg": "#c00a0a",
+            "hovered_bg": "#a00808",
+            "pressed_bg": "#800606",
+            "normal_border": "#520202",
+            "hovered_border": "#6E2A2A",
+            "pressed_border": "#6E2A2A",
+            "normal_text": "#ffffff",
             "hovered_text": "#ffffff",
-            "selected_text": "#ffffff",
+            "pressed_text": "#ffffff"
+        }
+    },
+    "#undo_button":
+    {
+        "colours":
+        {
+            "normal_bg": "#00000000",
+            "hovered_bg": "#00000020",
+            "disabled_bg": "#00000000",
+            "selected_bg": "#00000020",
+            "active_bg": "#00000030",
 
-            "normal_border": "#4a4a4a",
-            "hovered_border": "#ffffff",
-            "selected_border": "#ffffff"
+            "normal_border": "#00000000",
+            "hovered_border": "#00000000",
+            "disabled_border": "#00000000",
+            "selected_border": "#00000000",
+            "active_border": "#00000000",
+
+            "normal_text": "#00000000",
+            "hovered_text": "#00000000",
+            "disabled_text": "#00000000",
+            "selected_text": "#00000000",
+            "active_text": "#00000000"
         },
-        "misc": {
-            "border_width": "2",
-            "shadow_width": "1",
-            "border_radius": "6",
-            "tool_tip_delay": "1.0"
+
+        "images":
+        {
+            "normal_image":
+            {
+                "path": "undo.png"
+            },
+            "hovered_image":
+            {
+                "path": "undo.png"
+            },
+            "selected_image":
+            {
+                "path": "undo.png"
+            },
+            "disabled_image":
+            {
+                "path": "undo.png"
+            }
+        },
+
+        "misc":
+        {
+            "shape": "rectangle",
+            "border_width": "0",
+            "shadow_width": "0",
+            "auto_scale_images": "1"
         }
     },
-    "#red_button": {
-        "colours": {
-            "normal_bg": "#ff0000",
-            "hovered_bg": "#ff0000",
-            "selected_bg": "#ff0000"
-        }
-    },
-    "#green_button": {
-        "colours": {
-            "normal_bg": "#00ff00",
-            "hovered_bg": "#00ff00",
-            "selected_bg": "#00ff00"
-        }
-    },
-    "#blue_button": {
-        "colours": {
-            "normal_bg": "#0000ff",
-            "hovered_bg": "#0000ff",
-            "selected_bg": "#0000ff"
-        }
-    },
-    "#yellow_button": {
-        "colours": {
-            "normal_bg": "#ffff00",
-            "hovered_bg": "#ffff00",
-            "selected_bg": "#ffff00"
-        }
-    },
-    "#magenta_button": {
-        "colours": {
-            "normal_bg": "#ff00ff",
-            "hovered_bg": "#ff00ff",
-            "selected_bg": "#ff00ff"
-        }
-    },
-    "#cyan_button": {
-        "colours": {
-            "normal_bg": "#00ffff",
-            "hovered_bg": "#00ffff",
-            "selected_bg": "#00ffff"
-        }
-    },
-    "#grey_button": {
-        "colours": {
-            "normal_bg": "#f5f5f5",
-            "hovered_bg": "#f5f5f5",
-            "selected_bg": "#f5f5f5"
-        }
-    },
-    "#pink_button": {
-        "colours": {
-            "normal_bg": "#c27bb0",
-            "hovered_bg": "#c27bb0",
-            "selected_bg": "#c27bb0"
-        }
-    },
-    "#black_button": {
-        "colours": {
-            "normal_bg": "#000000",
-            "hovered_bg": "#000000",
-            "selected_bg": "#000000"
+
+    "#redo_button":
+    {
+        "colours":
+        {
+            "normal_bg": "#00000000",
+            "hovered_bg": "#00000020",
+            "disabled_bg": "#00000000",
+            "selected_bg": "#00000020",
+            "active_bg": "#00000030",
+
+            "normal_border": "#00000000",
+            "hovered_border": "#00000000",
+            "disabled_border": "#00000000",
+            "selected_border": "#00000000",
+            "active_border": "#00000000",
+
+            "normal_text": "#00000000",
+            "hovered_text": "#00000000",
+            "disabled_text": "#00000000",
+            "selected_text": "#00000000",
+            "active_text": "#00000000"
+        },
+
+        "images":
+        {
+            "normal_image":
+            {
+                "path": "redo.png"
+            },
+            "hovered_image":
+            {
+                "path": "redo.png"
+            },
+            "selected_image":
+            {
+                "path": "redo.png"
+            },
+            "disabled_image":
+            {
+                "path": "redo.png"
+            }
+        },
+
+        "misc":
+        {
+            "shape": "rectangle",
+            "border_width": "0",
+            "shadow_width": "0",
+            "auto_scale_images": "1"
         }
     }
 }
