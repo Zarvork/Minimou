@@ -59,7 +59,7 @@ def receive_image():
             H = S @ H2 @ H1
             raw_point = points[0]
             canvas_point = kinect_to_canvas(raw_point, H)
-            latest_coord = canvas_point
+            latest_coord = (float(canvas_point[0]), float(canvas_point[1]))
 
         cv2.imshow("Camera", frame)
 
