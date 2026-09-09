@@ -1,5 +1,6 @@
 import threading
 
+from datetime import datetime
 import image_subscriber
 import pygame
 import pygame_gui
@@ -55,6 +56,8 @@ def main():
     #            Define Python variables
     # ================================================
 
+    nb_buffered_time = 0.5
+    previous_point = datetime.now()
     canvas_states = [canvas.copy()]
     current_state = 0
     running = True
@@ -340,17 +343,18 @@ def main():
     # ================================================
     #                  Game Loop
     # ================================================
+    last_coord = None
     while running:
         coord = image_subscriber.latest_coord
 
         drawing_size = max(1, int(slider.getValue()))
-        if len(coord) != 0:
-            pygame.draw.circle(
-                canvas,
-                drawing_color,
-                (int(coord[0]), int(coord[1])),
-                drawing_size,
-            )
+        if len(coord) != 0 and last_coord != coord:
+            current_time = datetime.now()
+            if (current_time - previous_point).seconds > nb_buffered_time:
+                last_pos = None
+            is_drawing = True
+            previous_point = current_time
+            # last_pos = last_coord
 
         events = pygame.event.get()
 
@@ -527,29 +531,29 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if (
-                    not is_over_ui(event.pos)
-                    and confirmation_dialog is None
-                    and challenge_window is None
-                    and color_picker is None
-                    and not tutorial_box.visible
-                ):
-                    is_drawing = True
-                    last_pos = event.pos
+            # if event.type == pygame.MOUSEBUTTONDOWN:
+            #     if (
+            #         not is_over_ui(event.pos)
+            #         and confirmation_dialog is None
+            #         and challenge_window is None
+            #         and color_picker is None
+            #         and not tutorial_box.visible
+            #     ):
+            #         is_drawing = True
+            #         last_pos = event.pos
 
-            if event.type == pygame.MOUSEBUTTONUP:
-                if stroke_dirty:
-                    current_state = push_canvas_state(
-                        canvas_states, current_state, canvas
-                    )
+            # if event.type == pygame.MOUSEBUTTONUP:
+            #     if stroke_dirty:
+            #         current_state = push_canvas_state(
+            #             canvas_states, current_state, canvas
+            #         )
 
-                    undo_button.enable()
-                    redo_button.disable()
+            #         undo_button.enable()
+            #         redo_button.disable()
 
-                is_drawing = False
-                last_pos = None
-                stroke_dirty = False
+            #     is_drawing = False
+            #     last_pos = None
+            #     stroke_dirty = False
 
             if event.type == pygame_gui.UI_WINDOW_CLOSE:
                 if event.ui_element == confirmation_dialog:
@@ -674,7 +678,8 @@ def main():
         """
 
         if is_drawing:
-            current_pos = pygame.mouse.get_pos()
+            # current_pos = pygame.mouse.get_pos()
+            current_pos = coord
 
             if not is_over_ui(current_pos):
                 if last_pos is not None and not is_over_ui(last_pos):
@@ -699,6 +704,7 @@ def main():
                             draw_image_brush(position, drawing_size)
                     stroke_dirty = True
             last_pos = current_pos
+            is_drawing = False
 
         screen.blit(canvas, (0, 0))
         manager.update(dt)

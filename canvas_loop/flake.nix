@@ -1,5 +1,5 @@
 {
-  description = "Pygame development environment on NixOS";
+  description = "Pygame/OpenCV development shell";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -16,51 +16,51 @@
         packages = with pkgs; [
           python312
           uv
+          pkg-config
 
-          # SDL2 / Pygame runtime
+          # Pygame / SDL
           SDL2
           SDL2_image
           SDL2_mixer
           SDL2_ttf
 
-          # Wayland
-          wayland
-          libxkbcommon
+          # OpenCV / affichage X11
+          libxcb
+          libX11
+          libXcursor
+          libXi
+          libXrandr
+          libXext
+          libXinerama
+          libXrender
+          libXScrnSaver
 
-          # X11 fallback
-          xorg.libX11
-          xorg.libXcursor
-          xorg.libXi
-          xorg.libXrandr
-          xorg.libXext
-          xorg.libXinerama
-          xorg.libXrender
-          xorg.libXScrnSaver
-
-          # OpenGL / EGL
+          # Certaines installations OpenCV en ont besoin
+          mesa
           libGL
-          libGLU
+          glib
         ];
 
         shellHook = ''
           export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
-            pkgs.wayland
-            pkgs.libxkbcommon
-            pkgs.xorg.libX11
-            pkgs.xorg.libXcursor
-            pkgs.xorg.libXi
-            pkgs.xorg.libXrandr
-            pkgs.xorg.libXext
-            pkgs.xorg.libXinerama
-            pkgs.xorg.libXrender
-            pkgs.xorg.libXScrnSaver
+            pkgs.libxcb
+            pkgs.libX11
+            pkgs.libXcursor
+            pkgs.libXi
+            pkgs.libXrandr
+            pkgs.libXext
+            pkgs.libXinerama
+            pkgs.libXrender
+            pkgs.libXScrnSaver
+            pkgs.mesa
             pkgs.libGL
-            pkgs.libGLU
+            pkgs.glib
           ]}:$LD_LIBRARY_PATH"
 
-          echo "Pygame/Nix development shell"
-          echo "Wayland: $WAYLAND_DISPLAY"
-          echo "X11:     $DISPLAY"
+          export SDL_VIDEODRIVER=''${SDL_VIDEODRIVER:-x11}
+
+          echo "Pygame/OpenCV development shell"
+          echo "DISPLAY: ''${DISPLAY:-not set}"
         '';
       };
     };
