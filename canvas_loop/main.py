@@ -72,6 +72,7 @@ def main():
     confirmation_dialog = None
     challenge_window = None
     color_picker = None
+    last_activated_button = None
 
     manager = pygame_gui.UIManager((width, height), theme_path="theme.json")
 
@@ -293,6 +294,108 @@ def main():
             or (tutorial_rect.collidepoint(pos) if tutorial_box.visible else False)
         )
 
+    def get_hovered_button(pos):
+        """Return a name identifying which button (if any) contains pos."""
+
+        if undo_button_rect.collidepoint(pos) and undo_button.is_enabled:
+            return "undo"
+
+        if redo_button_rect.collidepoint(pos) and redo_button.is_enabled:
+            return "redo"
+
+        if challenge_button_rect.collidepoint(pos):
+            return "challenge"
+
+        if color_picker_button_rect.collidepoint(pos):
+            return "color_picker"
+
+        if clear_button_rect.collidepoint(pos):
+            return "clear"
+
+        if circle_brush_button_rect.collidepoint(pos):
+            return "circle_brush"
+
+        if image_brush_button_rect.collidepoint(pos):
+            return "image_brush"
+
+        if erase_button_rect.collidepoint(pos):
+            return "erase"
+
+        if tutorial_button_rect.collidepoint(pos):
+            return "tutorial"
+
+        return None
+
+    def activate_button(name):
+        """Trigger the same action a real click on this button would cause."""
+
+        nonlocal confirmation_dialog, challenge_window, color_picker
+        nonlocal brush_type, drawing_color, current_state, canvas
+
+        if name == "clear" and confirmation_dialog is None:
+            confirmation_dialog = ClearConfirmationWindow(
+                pygame.Rect(width // 2 - 300, height // 2 - 175, 600, 350),
+                manager=manager,
+                on_confirm=clear_canvas,
+                on_close=close_confirmation,
+            )
+
+        elif name == "color_picker" and color_picker is None:
+            color_picker = UIColourPickerDialog(
+                pygame.Rect(width // 2 - 250, height // 2 - 250, 500, 500),
+                manager=manager,
+                initial_colour=selected_color,
+                window_title="Choose Color",
+            )
+
+        elif name == "challenge" and challenge_window is None:
+            challenge_window = ChallengeWindow(
+                pygame.Rect(width // 2 - 200, height // 2 - 180, 400, 360),
+                manager=manager,
+                on_easy=launch_easy,
+                on_medium=launch_medium,
+                on_hard=launch_hard,
+            )
+
+        elif name == "circle_brush":
+            brush_type = "circle"
+            drawing_color = pygame.Color(selected_color)
+
+        elif name == "image_brush":
+            brush_type = "image"
+            drawing_color = pygame.Color(selected_color)
+
+        elif name == "erase":
+            drawing_color = pygame.Color("#ffffff")
+
+        elif name == "tutorial":
+            if tutorial_box.visible:
+                tutorial_box.hide()
+            else:
+                tutorial_box.show()
+
+        elif name == "undo":
+            if current_state > 0:
+                current_state -= 1
+
+                canvas = canvas_states[current_state].copy()
+
+                redo_button.enable()
+
+                if current_state == 0:
+                    undo_button.disable()
+
+        elif name == "redo":
+            if current_state < len(canvas_states) - 1:
+                current_state += 1
+
+                canvas = canvas_states[current_state].copy()
+
+                undo_button.enable()
+
+                if current_state == len(canvas_states) - 1:
+                    redo_button.disable()
+
     def close_confirmation():
 
         nonlocal confirmation_dialog
@@ -384,7 +487,22 @@ def main():
 
             last_coord = coord
             previous_point = current_time
-            is_drawing = True
+
+            hovered_button = get_hovered_button(coord)
+
+            if hovered_button is not None:
+                # Only fire once per "entry" onto the button, so lingering
+                # on it doesn't repeatedly re-trigger the action. Moving
+                # off and back on (or onto a different button) re-arms it.
+                if hovered_button != last_activated_button:
+                    activate_button(hovered_button)
+
+                last_activated_button = hovered_button
+                is_drawing = False
+                last_pos = None
+            else:
+                last_activated_button = None
+                is_drawing = True
 
         if (
             is_drawing
@@ -396,202 +514,11 @@ def main():
 
         events = pygame.event.get()
 
-        # TODO: Create struct to hold variables (Yaml maybe ?)
-        # Taht way can pass it in a single argument and change values
-        """
-        def handle_events():
-            events = pygame.event.get()
-            for event in events:
-                manager.process_events(event)
-
-                if event.type == pygame.QUIT:
-                    running = False
-
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if (
-                        not is_over_ui(event.pos)
-                        and confirmation_dialog is None
-                        and challenge_window is None
-                        and color_picker is None
-                        and not tutorial_box.visible
-                    ):
-
-                        is_drawing = True
-                        last_pos = event.pos
-
-                if event.type == pygame.MOUSEBUTTONUP:
-                    if stroke_dirty:
-                        current_state = push_canvas_state(
-                            canvas_states,
-                            current_state,
-                            canvas
-                        )
-
-                        undo_button.enable()
-                        redo_button.disable()
-
-                    is_drawing = False
-                    last_pos = None
-                    stroke_dirty = False
-
-                if event.type == pygame_gui.UI_WINDOW_CLOSE:
-                    if event.ui_element == confirmation_dialog:
-                        confirmation_dialog = None
-
-                    if event.ui_element == challenge_window:
-                        challenge_window = None
-
-                    if event.ui_element == color_picker:
-                        color_picker = None
-
-                if event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
-                    picked_color = pygame.Color(event.colour)
-                    selected_color = pygame.Color(picked_color)
-                    drawing_color = pygame.Color(picked_color)
-
-                    update_color_picker_button(
-                        selected_color
-                    )
-
-                    if color_picker is not None:
-                        color_picker.kill()
-                        color_picker = None
-
-                if event.type == pygame_gui.UI_BUTTON_PRESSED:
-                    if (
-                        event.ui_element == clear_button
-                        and confirmation_dialog is None
-                    ):
-
-                        confirmation_dialog = (
-                            ClearConfirmationWindow(
-                                pygame.Rect(
-                                    width // 2 - 300,
-                                    height // 2 - 175,
-                                    600,
-                                    350
-                                ),
-                                manager=manager,
-                                on_confirm=clear_canvas,
-                                on_close=close_confirmation
-                            )
-                        )
-
-                    if (
-                        event.ui_element == color_picker_button
-                        and color_picker is None
-                    ):
-
-                        color_picker = UIColourPickerDialog(
-                            pygame.Rect(
-                                width // 2 - 250,
-                                height // 2 - 250,
-                                500,
-                                500
-                            ),
-                            manager=manager,
-                            initial_colour=selected_color,
-                            window_title="Choose Color"
-                        )
-
-                    if (
-                        event.ui_element == challenge_button
-                        and challenge_window is None
-                    ):
-                        challenge_window = ChallengeWindow(
-                            pygame.Rect(
-                                width // 2 - 200,
-                                height // 2 - 180,
-                                400,
-                                360
-                            ),
-                            manager=manager,
-                            on_easy=launch_easy,
-                            on_medium=launch_medium,
-                            on_hard=launch_hard
-                        )
-
-                    if event.ui_element == circle_brush_button:
-                        brush_type = "circle"
-                        drawing_color = pygame.Color(selected_color)
-
-                    if event.ui_element == image_brush_button:
-                        brush_type = "image"
-                        drawing_color = pygame.Color(selected_color)
-
-                    if event.ui_element == erase_button:
-                        drawing_color = pygame.Color(
-                            "#ffffff"
-                        )
-
-                    if event.ui_element == tutorial_button:
-                        if tutorial_box.visible:
-                            tutorial_box.hide()
-                        else:
-                            tutorial_box.show()
-
-                    if event.ui_element == undo_button:
-                        if current_state > 0:
-                            current_state -= 1
-
-                            canvas = canvas_states[
-                                current_state
-                            ].copy()
-
-                            redo_button.enable()
-
-                            if current_state == 0:
-                                undo_button.disable()
-
-                    if event.ui_element == redo_button:
-                        if (
-                            current_state
-                            < len(canvas_states) - 1
-                        ):
-                            current_state += 1
-
-                            canvas = canvas_states[
-                                current_state
-                            ].copy()
-
-                            undo_button.enable()
-
-                            if (
-                                current_state
-                                == len(canvas_states) - 1
-                            ):
-                                redo_button.disable()
-        """
-
         for event in events:
             manager.process_events(event)
 
             if event.type == pygame.QUIT:
                 running = False
-
-            # if event.type == pygame.MOUSEBUTTONDOWN:
-            #     if (
-            #         not is_over_ui(event.pos)
-            #         and confirmation_dialog is None
-            #         and challenge_window is None
-            #         and color_picker is None
-            #         and not tutorial_box.visible
-            #     ):
-            #         is_drawing = True
-            #         last_pos = event.pos
-
-            # if event.type == pygame.MOUSEBUTTONUP:
-            #     if stroke_dirty:
-            #         current_state = push_canvas_state(
-            #             canvas_states, current_state, canvas
-            #         )
-
-            #         undo_button.enable()
-            #         redo_button.disable()
-
-            #     is_drawing = False
-            #     last_pos = None
-            #     stroke_dirty = False
 
             if event.type == pygame_gui.UI_WINDOW_CLOSE:
                 if event.ui_element == confirmation_dialog:
@@ -678,42 +605,6 @@ def main():
 
                         if current_state == len(canvas_states) - 1:
                             redo_button.disable()
-
-        # TODO: Same with Rects and other
-        """
-        def handle_drawing():
-            current_pos = pygame.mouse.get_pos()
-
-            if not is_over_ui(current_pos):
-                if last_pos is not None and not is_over_ui(last_pos):
-                    distance = pygame.Vector2(current_pos).distance_to(last_pos)
-
-                    step = max(drawing_size / 4, 1)
-                    steps = max(int(distance / step), 1)
-
-                    for i in range(steps + 1):
-                        t = i / steps
-
-                        interp_x = (last_pos[0] + (current_pos[0] - last_pos[0]) * t)
-                        interp_y = (last_pos[1] + (current_pos[1] - last_pos[1]) * t)
-
-                        position = (int(interp_x), int(interp_y))
-
-                        if brush_type == "circle":
-                            pygame.draw.circle(
-                                canvas,
-                                drawing_color,
-                                position,
-                                drawing_size
-                            )
-                        elif brush_type == "image":
-                            draw_image_brush(
-                                position,
-                                drawing_size
-                            )
-                    stroke_dirty = True
-            last_pos = current_pos
-        """
 
         if is_drawing:
             current_pos = coord
