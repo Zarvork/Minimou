@@ -8,7 +8,7 @@ import pygame_widgets
 from challenge import ChallengeWindow
 from clearwindow import ClearConfirmationWindow
 from pygame_gui.elements import UIButton, UITextBox
-from pygame_gui.windows import UIColourPickerDialog
+from colorpicker import RadialColorPickerWindow
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 
@@ -72,7 +72,7 @@ def main():
     confirmation_dialog = None
     challenge_window = None
     color_picker = None
-    last_activated_button = None
+    last_activated_element = None
 
     manager = pygame_gui.UIManager((width, height), theme_path="theme.json")
 
@@ -294,107 +294,90 @@ def main():
             or (tutorial_rect.collidepoint(pos) if tutorial_box.visible else False)
         )
 
-    def get_hovered_button(pos):
-        """Return a name identifying which button (if any) contains pos."""
+    def get_hovered_element(pos):
+        """Return whichever clickable UI element (if any) contains pos.
 
-        if undo_button_rect.collidepoint(pos) and undo_button.is_enabled:
-            return "undo"
+        When a popup window (clear confirmation, challenge, colour picker)
+        is open, only that popup's own buttons - including its title-bar
+        close ("X") button - are reachable, mirroring how a real click
+        can't reach the toolbar underneath a modal window.
+        """
 
-        if redo_button_rect.collidepoint(pos) and redo_button.is_enabled:
-            return "redo"
+        popup_elements = []
 
-        if challenge_button_rect.collidepoint(pos):
-            return "challenge"
+        if confirmation_dialog is not None:
+            popup_elements += [
+                confirmation_dialog.close_window_button,
+                confirmation_dialog.confirm_button,
+                confirmation_dialog.cancel_button,
+            ]
 
-        if color_picker_button_rect.collidepoint(pos):
-            return "color_picker"
+        if challenge_window is not None:
+            popup_elements += [
+                challenge_window.close_window_button,
+                challenge_window.easy_button,
+                challenge_window.medium_button,
+                challenge_window.hard_button,
+            ]
 
-        if clear_button_rect.collidepoint(pos):
-            return "clear"
+        if color_picker is not None:
+            popup_elements += [
+                color_picker.close_window_button,
+                getattr(color_picker, "ok_button", None),
+                getattr(color_picker, "cancel_button", None),
+            ]
 
-        if circle_brush_button_rect.collidepoint(pos):
-            return "circle_brush"
+        if popup_elements:
+            candidates = popup_elements
+        else:
+            candidates = [
+                undo_button if undo_button.is_enabled else None,
+                redo_button if redo_button.is_enabled else None,
+                challenge_button,
+                color_picker_button,
+                clear_button,
+                circle_brush_button,
+                image_brush_button,
+                erase_button,
+                tutorial_button,
+            ]
 
-        if image_brush_button_rect.collidepoint(pos):
-            return "image_brush"
-
-        if erase_button_rect.collidepoint(pos):
-            return "erase"
-
-        if tutorial_button_rect.collidepoint(pos):
-            return "tutorial"
+        for element in candidates:
+            if element is not None and element.rect.collidepoint(pos):
+                return element
 
         return None
 
-    def activate_button(name):
-        """Trigger the same action a real click on this button would cause."""
+    def activate_element(element):
+        """Fire the same event pygame_gui posts when this element is clicked.
 
-        nonlocal confirmation_dialog, challenge_window, color_picker
-        nonlocal brush_type, drawing_color, current_state, canvas
+        This lets every existing click handler (ours, the popup windows',
+        and pygame_gui's own colour picker) run completely unchanged.
+        """
 
-        if name == "clear" and confirmation_dialog is None:
-            confirmation_dialog = ClearConfirmationWindow(
-                pygame.Rect(width // 2 - 300, height // 2 - 175, 600, 350),
-                manager=manager,
-                on_confirm=clear_canvas,
-                on_close=close_confirmation,
+        pygame.event.post(
+            pygame.event.Event(
+                pygame_gui.UI_BUTTON_PRESSED,
+                {
+                    "ui_element": element,
+                    "ui_object_id": element.most_specific_combined_id,
+                },
             )
+        )
 
-        elif name == "color_picker" and color_picker is None:
-            color_picker = UIColourPickerDialog(
-                pygame.Rect(width // 2 - 250, height // 2 - 250, 500, 500),
-                manager=manager,
-                initial_colour=selected_color,
-                window_title="Choose Color",
-            )
+    def update_slider_from_point(pos):
+        """Move the brush-size slider's handle to follow a point's x position."""
 
-        elif name == "challenge" and challenge_window is None:
-            challenge_window = ChallengeWindow(
-                pygame.Rect(width // 2 - 200, height // 2 - 180, 400, 360),
-                manager=manager,
-                on_easy=launch_easy,
-                on_medium=launch_medium,
-                on_hard=launch_hard,
-            )
+        slider_x = slider.getX()
+        slider_width = slider.getWidth()
 
-        elif name == "circle_brush":
-            brush_type = "circle"
-            drawing_color = pygame.Color(selected_color)
+        ratio = (pos[0] - slider_x) / slider_width
+        ratio = max(0.0, min(1.0, ratio))
 
-        elif name == "image_brush":
-            brush_type = "image"
-            drawing_color = pygame.Color(selected_color)
+        value = slider.round(ratio * (slider.max - slider.min) + slider.min)
+        value = max(min(value, slider.max), slider.min)
 
-        elif name == "erase":
-            drawing_color = pygame.Color("#ffffff")
-
-        elif name == "tutorial":
-            if tutorial_box.visible:
-                tutorial_box.hide()
-            else:
-                tutorial_box.show()
-
-        elif name == "undo":
-            if current_state > 0:
-                current_state -= 1
-
-                canvas = canvas_states[current_state].copy()
-
-                redo_button.enable()
-
-                if current_state == 0:
-                    undo_button.disable()
-
-        elif name == "redo":
-            if current_state < len(canvas_states) - 1:
-                current_state += 1
-
-                canvas = canvas_states[current_state].copy()
-
-                undo_button.enable()
-
-                if current_state == len(canvas_states) - 1:
-                    redo_button.disable()
+        slider.setValue(value)
 
     def close_confirmation():
 
@@ -467,6 +450,17 @@ def main():
             elif brush_type == "image":
                 draw_image_brush(position, drawing_size)
 
+    def on_colour_changed(colour):
+        nonlocal selected_color, drawing_color
+        selected_color = pygame.Color(colour)
+        drawing_color = pygame.Color(colour)
+        update_color_picker_button(selected_color)
+
+
+    def close_color_picker():
+        nonlocal color_picker
+        color_picker = None
+
     # ================================================
     #                  Game Loop
     # ================================================
@@ -488,21 +482,43 @@ def main():
             last_coord = coord
             previous_point = current_time
 
-            hovered_button = get_hovered_button(coord)
+            any_popup_open = (
+                confirmation_dialog is not None
+                or challenge_window is not None
+                or color_picker is not None
+            )
 
-            if hovered_button is not None:
-                # Only fire once per "entry" onto the button, so lingering
-                # on it doesn't repeatedly re-trigger the action. Moving
-                # off and back on (or onto a different button) re-arms it.
-                if hovered_button != last_activated_button:
-                    activate_button(hovered_button)
+            if not any_popup_open and slider_rect.collidepoint(coord):
+                # Over the brush-size slider: drag its handle continuously
+                # rather than treating it as a discrete button click.
+                update_slider_from_point(coord)
 
-                last_activated_button = hovered_button
+                last_activated_element = None
                 is_drawing = False
                 last_pos = None
             else:
-                last_activated_button = None
-                is_drawing = True
+                hovered_element = get_hovered_element(coord)
+
+                if hovered_element is not None:
+                    # Only fire once per "entry" onto the element, so
+                    # lingering on it doesn't repeatedly re-trigger the
+                    # action. Moving off and back on (or onto a different
+                    # element) re-arms it.
+                    if hovered_element is not last_activated_element:
+                        activate_element(hovered_element)
+
+                    last_activated_element = hovered_element
+                    is_drawing = False
+                    last_pos = None
+                elif any_popup_open:
+                    # A modal popup is open and the point isn't over any of
+                    # its buttons: don't let it draw on the canvas behind it.
+                    last_activated_element = None
+                    is_drawing = False
+                    last_pos = None
+                else:
+                    last_activated_element = None
+                    is_drawing = True
 
         if (
             is_drawing
@@ -551,11 +567,12 @@ def main():
                     )
 
                 if event.ui_element == color_picker_button and color_picker is None:
-                    color_picker = UIColourPickerDialog(
-                        pygame.Rect(width // 2 - 250, height // 2 - 250, 500, 500),
+                    color_picker = RadialColorPickerWindow(
+                        pygame.Rect(width // 10, height // 10, 8 * width // 10, 8 * height // 10),
                         manager=manager,
                         initial_colour=selected_color,
-                        window_title="Choose Color",
+                        on_colour_changed=on_colour_changed,
+                        on_close=close_color_picker,
                     )
 
                 if event.ui_element == challenge_button and challenge_window is None:
