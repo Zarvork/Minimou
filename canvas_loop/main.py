@@ -1,6 +1,6 @@
 import threading
 
-from datetime import datetime
+import time
 import image_subscriber
 import pygame
 import pygame_gui
@@ -57,7 +57,7 @@ def main():
     # ================================================
 
     nb_buffered_time = 0.5
-    previous_point = datetime.now()
+    previous_point = None
     canvas_states = [canvas.copy()]
     current_state = 0
     running = True
@@ -340,6 +340,30 @@ def main():
 
         canvas.blit(brush, brush_rect)
 
+    def draw_interpolated(last_pos, current_pos, drawing_size):
+        distance = pygame.Vector2(current_pos).distance_to(last_pos)
+
+        step = max(drawing_size / 4, 1)
+        steps = max(int(distance / step), 1)
+
+        for i in range(steps + 1):
+            t = i / steps
+
+            x = int(last_pos[0] + (current_pos[0] - last_pos[0]) * t)
+            y = int(last_pos[1] + (current_pos[1] - last_pos[1]) * t)
+
+            position = (x, y)
+
+            if brush_type == "circle":
+                pygame.draw.circle(
+                    canvas,
+                    drawing_color,
+                    position,
+                    drawing_size
+                )
+            elif brush_type == "image":
+                draw_image_brush(position, drawing_size)
+
     # ================================================
     #                  Game Loop
     # ================================================
@@ -348,13 +372,27 @@ def main():
         coord = image_subscriber.latest_coord
 
         drawing_size = max(1, int(slider.getValue()))
-        if len(coord) != 0 and last_coord != coord:
-            current_time = datetime.now()
-            if (current_time - previous_point).seconds > nb_buffered_time:
+
+        # A new Kinect coordinate was received
+        if len(coord) != 0 and coord != last_coord:
+            current_time = time.monotonic()
+
+            # If we haven't received a point for a while,
+            # consider this the beginning of a new stroke.
+            if previous_point is None or current_time - previous_point > nb_buffered_time:
                 last_pos = None
-            is_drawing = True
+
+            last_coord = coord
             previous_point = current_time
-            # last_pos = last_coord
+            is_drawing = True
+
+        if (
+            is_drawing
+            and previous_point is not None
+            and time.monotonic() - previous_point > nb_buffered_time
+        ):
+            is_drawing = False
+            last_pos = None
 
         events = pygame.event.get()
 
@@ -678,33 +716,44 @@ def main():
         """
 
         if is_drawing:
-            # current_pos = pygame.mouse.get_pos()
             current_pos = coord
 
             if not is_over_ui(current_pos):
-                if last_pos is not None and not is_over_ui(last_pos):
-                    distance = pygame.Vector2(current_pos).distance_to(last_pos)
+                if last_pos is None:
+                    if brush_type == "circle":
+                        pygame.draw.circle(
+                            canvas,
+                            drawing_color,
+                            current_pos,
+                            drawing_size
+                        )
+                    elif brush_type == "image":
+                        draw_image_brush(current_pos, drawing_size)
 
-                    step = max(drawing_size / 4, 1)
-                    steps = max(int(distance / step), 1)
+                elif not is_over_ui(last_pos):
+                    draw_interpolated(
+                        last_pos,
+                        current_pos,
+                        drawing_size
+                    )
 
-                    for i in range(steps + 1):
-                        t = i / steps
+                last_pos = current_pos
+                stroke_dirty = True
 
-                        interp_x = last_pos[0] + (current_pos[0] - last_pos[0]) * t
-                        interp_y = last_pos[1] + (current_pos[1] - last_pos[1]) * t
+        if (
+            not is_drawing
+            and stroke_dirty
+        ):
+            current_state = push_canvas_state(
+                canvas_states,
+                current_state,
+                canvas
+            )
 
-                        position = (int(interp_x), int(interp_y))
+            undo_button.enable()
+            redo_button.disable()
 
-                        if brush_type == "circle":
-                            pygame.draw.circle(
-                                canvas, drawing_color, position, drawing_size
-                            )
-                        elif brush_type == "image":
-                            draw_image_brush(position, drawing_size)
-                    stroke_dirty = True
-            last_pos = current_pos
-            is_drawing = False
+            stroke_dirty = False
 
         screen.blit(canvas, (0, 0))
         manager.update(dt)
