@@ -22,10 +22,13 @@ void send_image(cv::Mat& frame) {
     }
 
     std::vector<uchar> jpg;
+    cv::Mat bgr_frame;
+
+    cv::cvtColor(frame, bgr_frame, cv::COLOR_RGB2BGR);
     
     cv::imencode(
             ".jpg",
-            frame,
+            bgr_frame,
             jpg,
             {cv::IMWRITE_JPEG_QUALITY, 80}
         );

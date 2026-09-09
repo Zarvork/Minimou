@@ -12,7 +12,7 @@ class IndexDetector:
             base_options=base_options,
             running_mode=vision.RunningMode.IMAGE,
             num_hands=1,
-            min_hand_detection_confidence=0.5,
+            min_hand_detection_confidence=0.3,
             min_tracking_confidence=0.5,
         )
 
@@ -35,10 +35,26 @@ class IndexDetector:
         for hand_landmarks in result.hand_landmarks:
             index_tip = hand_landmarks[8]
 
-            x = int(index_tip.x * width)
-            y = int(index_tip.y * height)
+            index_mid_high = hand_landmarks[7]
+            index_mid = hand_landmarks[6]
+            index_bot = hand_landmarks[5]
 
-            points.append((x, y))
+            x_tip = int(index_tip.x * width)
+            y_tip = int(index_tip.y * height)
+
+            x_mid_high = int(index_mid_high.x * width)
+            y_mid_high = int(index_mid_high.y * height)
+
+            x_mid = int(index_mid.x * width)
+            y_mid = int(index_mid.y * height)
+
+            x_bot = int(index_bot.x * width)
+            y_bot = int(index_bot.y * height)
+
+            points.append((x_tip, y_tip))
+            points.append((x_mid_high, y_mid_high))
+            points.append((x_mid, y_mid))
+            points.append((x_bot, y_bot))
 
         return points
 

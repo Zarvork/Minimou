@@ -31,12 +31,12 @@ int main(int argc, const char** argv)
             rgb8 color = cmap[pixel];
             depth_rgb.at<cv::Vec3b>(position[0], position[1]) = cv::Vec3b(color.r, color.g, color.b);
         });
-        //imshow("Depth", depth_rgb);
+        imshow("Depth", depth_rgb);
     });
 
     // Create windows
     // namedWindow("RGB", WINDOW_AUTOSIZE);
-    // namedWindow("Depth", WINDOW_AUTOSIZE);
+    namedWindow("Depth", WINDOW_AUTOSIZE);
 
     // Add a button for calibration
     //createButton("Calibrate", [](int state, void* userdata) {
