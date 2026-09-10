@@ -1,16 +1,21 @@
+import os
 import threading
 import time
+from datetime import datetime
 
-import image_subscriber
 import pygame
 import pygame_gui
 import pygame_widgets
-from challenge import ChallengeWindow
-from clearwindow import ClearConfirmationWindow
-from colorpicker import RadialColorPickerWindow
 from pygame_gui.elements import UIButton, UITextBox
+from pygame_gui.windows import UIColourPickerDialog
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
+
+import image_subscriber
+from clearwindow import ClearConfirmationWindow
+from colorpicker import RadialColorPickerWindow
+from emailwindow import EmailWindow
+from send_email import send_canvas_by_email
 
 BUTTON_WIDTH = 200
 BUTTON_HEIGHT = 50
@@ -49,13 +54,15 @@ def main():
     canvas = pygame.Surface((width, height))
     canvas.fill(pygame.Color("#ffffff"))
 
+    raw_baptiste = pygame.image.load("signs/baptiste.png").convert_alpha()
+    raw_eraser = pygame.image.load("signs/eraser.png").convert_alpha()
     # Transparent surface redrawn every frame for the hover indicator.
     # Nothing is ever blitted onto `canvas` here, so it never persists.
     hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-    raw_baptiste = pygame.image.load("baptiste.jpg").convert()
-    raw_eraser = pygame.image.load("eraser.png").convert_alpha()
     eraser_icon = pygame.transform.smoothscale(raw_eraser, (BUTTON_WIDTH - 20, 40))
+    raw_trash = pygame.image.load("signs/poubelle.png").convert_alpha()
+    trash_icon = pygame.transform.smoothscale(raw_trash, (30, 20))
 
     # ================================================
     #            Define Python variables
@@ -72,12 +79,11 @@ def main():
     is_drawing = False
     stroke_dirty = False
     undo_width = 80
-    challenge_button_width = 130
     color_picker_display_color = pygame.Color("#000000")
     confirmation_dialog = None
-    challenge_window = None
     color_picker = None
     last_activated_element = None
+    email_window = None
 
     manager = pygame_gui.UIManager((width, height), theme_path="theme.json")
 
@@ -123,12 +129,9 @@ def main():
         width - BUTTON_WIDTH - undo_width, 0, undo_width, BUTTON_HEIGHT
     )
 
-    challenge_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH - 2 * undo_width - challenge_button_width,
-        0,
-        challenge_button_width,
-        BUTTON_HEIGHT,
-    )
+    # toolbar_rect = pygame.Rect(width - BUTTON_WIDTH - 24, 0, BUTTON_WIDTH + 24, height)
+
+    # pygame.draw.rect(screen, pygame.Color("#F4F7FB"), toolbar_rect)
 
     color_picker_button_rect = pygame.Rect(
         width - BUTTON_WIDTH, height - BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT
@@ -136,6 +139,10 @@ def main():
 
     clear_button_rect = pygame.Rect(
         width - BUTTON_WIDTH, 0, BUTTON_WIDTH, BUTTON_HEIGHT
+    )
+
+    save_rect = pygame.Rect(
+        width - BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT
     )
 
     circle_brush_button_rect = pygame.Rect(
@@ -157,6 +164,14 @@ def main():
         height - 2 * BUTTON_HEIGHT - 1,
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
+    )
+
+    erase_icon_rect = pygame.Rect(
+        width - BUTTON_WIDTH // 2 - 15, height - 2 * BUTTON_HEIGHT + 15, 30, 20
+    )
+
+    trash_icon_rect = pygame.Rect(
+        width - BUTTON_WIDTH // 2 - 15, BUTTON_HEIGHT // 2 - 10, 30, 20
     )
 
     inner_rect = color_picker_button_rect.inflate(-4, -4)
@@ -181,13 +196,6 @@ def main():
     )
     redo_button.disable()
 
-    challenge_button = UIButton(
-        relative_rect=challenge_button_rect,
-        text="Challenge",
-        manager=manager,
-        object_id="#challenge_button",
-    )
-
     color_picker_button = UIButton(
         relative_rect=color_picker_button_rect,
         text="",
@@ -197,7 +205,7 @@ def main():
 
     clear_button = UIButton(
         relative_rect=clear_button_rect,
-        text="🗑️",
+        text="",
         manager=manager,
         object_id="#clear_button",
     )
@@ -218,7 +226,7 @@ def main():
 
     image_brush_button = UIButton(
         relative_rect=image_brush_button_rect,
-        text="Baptiste",
+        text="EPITA",
         manager=manager,
         object_id="#image_brush_button",
     )
@@ -227,6 +235,7 @@ def main():
         relative_rect=tutorial_button_rect, text="Tutorial", manager=manager
     )
 
+    save_button = UIButton(relative_rect=save_rect, text="Save", manager=manager)
     with open("tutorial.html", "r") as file:
         tutorial_content = file.read()
 
@@ -238,8 +247,17 @@ def main():
     #              Helper Functions
     # ================================================
 
+    def on_colour_changed(colour):
+        nonlocal selected_color, drawing_color
+        selected_color = pygame.Color(colour)
+        drawing_color = pygame.Color(colour)
+        update_color_picker_button(selected_color)
+
+    def close_color_picker():
+        nonlocal color_picker
+        color_picker = None
+
     def clear_canvas():
-
         nonlocal current_state
 
         canvas.fill(pygame.Color("#ffffff"))
@@ -248,40 +266,6 @@ def main():
 
         undo_button.enable()
         redo_button.disable()
-
-    def launch_challenge(difficulty):
-
-        nonlocal current_state
-
-        print(f"Challenge selected: {difficulty}")
-
-        # Placeholder for the future challenge.
-
-        canvas.fill(pygame.Color("#ffffff"))
-
-        font = pygame.font.Font(None, 64)
-
-        title = font.render(f"{difficulty} challenge", True, pygame.Color("#000000"))
-
-        subtitle = font.render("PLACEHOLDER", True, pygame.Color("#666666"))
-
-        canvas.blit(title, title.get_rect(center=(width // 2, height // 2 - 40)))
-
-        canvas.blit(subtitle, subtitle.get_rect(center=(width // 2, height // 2 + 30)))
-
-        current_state = push_canvas_state(canvas_states, current_state, canvas)
-
-        undo_button.enable()
-        redo_button.disable()
-
-    def launch_easy():
-        launch_challenge("EASY")
-
-    def launch_medium():
-        launch_challenge("MEDIUM")
-
-    def launch_hard():
-        launch_challenge("HARD")
 
     def is_over_ui(pos):
         return (
@@ -290,19 +274,19 @@ def main():
             or erase_button_rect.collidepoint(pos)
             or undo_button_rect.collidepoint(pos)
             or redo_button_rect.collidepoint(pos)
-            or challenge_button_rect.collidepoint(pos)
             or color_picker_button_rect.collidepoint(pos)
             or clear_button_rect.collidepoint(pos)
             or circle_brush_button_rect.collidepoint(pos)
             or image_brush_button_rect.collidepoint(pos)
             or tutorial_button_rect.collidepoint(pos)
+            or save_rect.collidepoint(pos)
             or (tutorial_rect.collidepoint(pos) if tutorial_box.visible else False)
         )
 
     def get_hovered_element(pos):
         """Return whichever clickable UI element (if any) contains pos.
 
-        When a popup window (clear confirmation, challenge, colour picker)
+        When a popup window (clear confirmation, colour picker)
         is open, only that popup's own buttons - including its title-bar
         close ("X") button - are reachable, mirroring how a real click
         can't reach the toolbar underneath a modal window.
@@ -315,14 +299,6 @@ def main():
                 confirmation_dialog.close_window_button,
                 confirmation_dialog.confirm_button,
                 confirmation_dialog.cancel_button,
-            ]
-
-        if challenge_window is not None:
-            popup_elements += [
-                challenge_window.close_window_button,
-                challenge_window.easy_button,
-                challenge_window.medium_button,
-                challenge_window.hard_button,
             ]
 
         if color_picker is not None:
@@ -338,7 +314,6 @@ def main():
             candidates = [
                 undo_button if undo_button.is_enabled else None,
                 redo_button if redo_button.is_enabled else None,
-                challenge_button,
                 color_picker_button,
                 clear_button,
                 circle_brush_button,
@@ -425,8 +400,30 @@ def main():
 
         return brush
 
+    def _make_image_brush(size):
+        size = max(1, int(size))
+
+        if size in image_brush_cache:
+            return image_brush_cache[size]
+
+        source_width, source_height = raw_baptiste.get_size()
+
+        # Keep the original aspect ratio.
+        scale_factor = size / source_height
+
+        brush_width = max(1, int(source_width * scale_factor))
+        brush_height = max(1, int(source_height * scale_factor))
+
+        brush = pygame.transform.smoothscale(
+            raw_baptiste, (brush_width, brush_height)
+        ).convert_alpha()
+
+        image_brush_cache[size] = brush
+
+        return brush
+
     def draw_image_brush(position, size):
-        brush = _make_circular_brush(size)
+        brush = _make_image_brush(size)
         brush_rect = brush.get_rect(center=position)
 
         canvas.blit(brush, brush_rect)
@@ -450,15 +447,33 @@ def main():
             elif brush_type == "image":
                 draw_image_brush(position, drawing_size)
 
-    def on_colour_changed(colour):
-        nonlocal selected_color, drawing_color
-        selected_color = pygame.Color(colour)
-        drawing_color = pygame.Color(colour)
-        update_color_picker_button(selected_color)
+    def save_canvas():
+        os.makedirs("saves", exist_ok=True)
 
-    def close_color_picker():
-        nonlocal color_picker
-        color_picker = None
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"saves/painting_{timestamp}.png"
+        pygame.image.save(canvas, filename)
+        print(f"Canvas saved as {filename}")
+
+    def close_email_window():
+        nonlocal email_window
+        email_window = None
+
+    def send_current_canvas(recipient):
+        nonlocal email_window
+
+        recipient = recipient.strip()
+
+        if "@" not in recipient or "." not in recipient:
+            print("Please enter a valid email address.")
+            return
+
+        success, message = send_canvas_by_email(canvas, recipient)
+        print(message)
+
+        if email_window is not None:
+            email_window.kill()
+            email_window = None
 
     # ================================================
     #                  Game Loop
@@ -483,11 +498,7 @@ def main():
             last_coord = coord
             previous_point = current_time
 
-            any_popup_open = (
-                confirmation_dialog is not None
-                or challenge_window is not None
-                or color_picker is not None
-            )
+            any_popup_open = confirmation_dialog is not None or color_picker is not None
 
             if not any_popup_open and slider_rect.collidepoint(coord):
                 # Over the brush-size slider: drag its handle continuously
@@ -537,15 +548,42 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if (
+                    not is_over_ui(event.pos)
+                    and confirmation_dialog is None
+                    and color_picker is None
+                    and not tutorial_box.visible
+                    and email_window is None
+                ):
+                    is_drawing = True
+                    last_pos = event.pos
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                if stroke_dirty:
+                    current_state = push_canvas_state(
+                        canvas_states, current_state, canvas
+                    )
+
+                    undo_button.enable()
+                    redo_button.disable()
+
+                is_drawing = False
+                last_pos = None
+                stroke_dirty = False
+
             if event.type == pygame_gui.UI_WINDOW_CLOSE:
                 if event.ui_element == confirmation_dialog:
                     confirmation_dialog = None
 
-                if event.ui_element == challenge_window:
-                    challenge_window = None
+                #       if event.ui_element == challenge_window:
+                #          challenge_window = None
 
                 if event.ui_element == color_picker:
                     color_picker = None
+
+                if event.ui_element == email_window:
+                    email_window = None
 
             if event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
                 picked_color = pygame.Color(event.colour)
@@ -578,14 +616,14 @@ def main():
                         on_close=close_color_picker,
                     )
 
-                if event.ui_element == challenge_button and challenge_window is None:
-                    challenge_window = ChallengeWindow(
-                        pygame.Rect(width // 2 - 200, height // 2 - 180, 400, 360),
-                        manager=manager,
-                        on_easy=launch_easy,
-                        on_medium=launch_medium,
-                        on_hard=launch_hard,
-                    )
+                #        if event.ui_element == challenge_button and challenge_window is None:
+                #           challenge_window = ChallengeWindow(
+                #              pygame.Rect(width // 2 - 200, height // 2 - 180, 400, 360),
+                #             manager=manager,
+                #            on_easy=launch_easy,
+                #           on_medium=launch_medium,
+                #          on_hard=launch_hard,
+                #     )
 
                 if event.ui_element == circle_brush_button:
                     brush_type = "circle"
@@ -626,6 +664,51 @@ def main():
                         if current_state == len(canvas_states) - 1:
                             redo_button.disable()
 
+                if event.ui_element == save_button and email_window is None:
+                    save_canvas()
+                    email_window = EmailWindow(
+                        pygame.Rect(width // 2 - 220, height // 2 - 110, 440, 220),
+                        manager=manager,
+                        on_send=send_current_canvas,
+                        on_close=close_email_window,
+                    )
+
+        # TODO: Same with Rects and other
+        """
+        def handle_drawing():
+            current_pos = pygame.mouse.get_pos()
+
+            if not is_over_ui(current_pos):
+                if last_pos is not None and not is_over_ui(last_pos):
+                    distance = pygame.Vector2(current_pos).distance_to(last_pos)
+
+                    step = max(drawing_size / 4, 1)
+                    steps = max(int(distance / step), 1)
+
+                    for i in range(steps + 1):
+                        t = i / steps
+
+                        interp_x = (last_pos[0] + (current_pos[0] - last_pos[0]) * t)
+                        interp_y = (last_pos[1] + (current_pos[1] - last_pos[1]) * t)
+
+                        position = (int(interp_x), int(interp_y))
+
+                        if brush_type == "circle":
+                            pygame.draw.circle(
+                                canvas,
+                                drawing_color,
+                                position,
+                                drawing_size
+                            )
+                        elif brush_type == "image":
+                            draw_image_brush(
+                                position,
+                                drawing_size
+                            )
+                    stroke_dirty = True
+            last_pos = current_pos
+        """
+
         table_touching = image_subscriber.finger_on_table
 
         if is_drawing and table_touching:
@@ -655,6 +738,7 @@ def main():
             redo_button.disable()
 
             stroke_dirty = False
+            last_pos = current_pos
 
         screen.blit(canvas, (0, 0))
 
@@ -699,8 +783,10 @@ def main():
 
         output.setText(str(slider.getValue()))
         pygame_widgets.update(events)
-        eraser_rect = eraser_icon.get_rect(center=erase_button_rect.center)
-        screen.blit(eraser_icon, eraser_rect)
+        erase_icon_rect = eraser_icon.get_rect(center=erase_icon_rect.center)
+        screen.blit(eraser_icon, erase_icon_rect)
+        trash_icon_rect = trash_icon.get_rect(center=trash_icon_rect.center)
+        screen.blit(trash_icon, trash_icon_rect)
         pygame.display.flip()
 
         dt = clock.tick(60) / 1000
