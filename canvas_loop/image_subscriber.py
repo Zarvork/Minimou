@@ -1,16 +1,11 @@
 import cv2
 import numpy as np
 import zmq
+from aruco_detector import compute_canvas_homography
 from IndexDetector import IndexDetector
 
 latest_coord = ()
 
-fs = cv2.FileStorage("calibration.yml", cv2.FILE_STORAGE_READ)
-H1 = fs.getNode("H1").mat()
-H2 = fs.getNode("H2").mat()
-fs.release()
-
-w, h = 640, 480  # resolution of the kinect
 CANVAS_W, CANVAS_H = 1280, 720  # pygame canvas size
 
 
@@ -28,6 +23,10 @@ def kinect_to_canvas(point, H):
 
 def receive_image():
     global latest_coord
+
+    is_calibrated = False
+    H = None
+
     context = zmq.Context()
 
     subscriber = context.socket(zmq.SUB)
@@ -46,17 +45,32 @@ def receive_image():
         if frame is None:
             continue
 
+        h, w = frame.shape[:2]
+
+        if not is_calibrated:
+            raw_H = compute_canvas_homography(frame, w, h)
+            if raw_H is not None:
+                S = scale_matrix(w, h, CANVAS_W, CANVAS_H)
+                H = S @ raw_H
+                is_calibrated = True
+                print("Calibration sucessfull")
+            else:
+                cv2.imshow("Camera", frame)
+                if cv2.waitKey(1) & 0xFF == 27:
+                    break
+                continue
+
         points = detector.get_index_coordinates(frame)
 
-        print(points)
+        # print(points)
 
         if points != []:
             # Draw points
             for pt in points:
                 cv2.circle(frame, (int(pt[0]), int(pt[1])), 6, (0, 255, 0), -1)
-            S = scale_matrix(w, h, CANVAS_W, CANVAS_H)
+
             # Projection matrix
-            H = S @ H2 @ H1
+
             raw_point = points[0]
             canvas_point = kinect_to_canvas(raw_point, H)
             latest_coord = (float(canvas_point[0]), float(canvas_point[1]))
