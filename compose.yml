@@ -1,0 +1,35 @@
+name: minimou
+
+services:
+  canvas-loop:
+    container_name: canvas-loop
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: canvas-loop:1.0
+
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+      QT_X11_NO_MITSHM: "1"
+      SDL_VIDEODRIVER: x11
+
+    ipc: host
+    network_mode: host
+    privileged: true
+    restart: "no"
+
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/bus/usb:/dev/bus/usb
+
+    volumes:
+      - type: bind
+        source: /tmp/.X11-unix
+        target: /tmp/.X11-unix
+        read_only: false
+      - type: bind
+        source: /sys
+        target: /sys
+        read_only: true
