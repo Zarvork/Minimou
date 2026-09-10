@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-sign_dir = BASE_DIR / "sign"
+sign_dir = BASE_DIR / "signs"
 from datetime import datetime
 
 import image_subscriber
@@ -57,7 +57,7 @@ def main():
     canvas = pygame.Surface((width, height))
     canvas.fill(pygame.Color("#ffffff"))
 
-    raw_baptiste = pygame.image.load(sign_dir / "baptiste.jpg").convert()
+    raw_baptiste = pygame.image.load(sign_dir / "baptiste.png").convert_alpha()
     raw_eraser = pygame.image.load(sign_dir / "eraser.png").convert_alpha()
     # Transparent surface redrawn every frame for the hover indicator.
     # Nothing is ever blitted onto `canvas` here, so it never persists.
