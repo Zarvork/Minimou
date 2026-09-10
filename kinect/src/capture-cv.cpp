@@ -1,7 +1,7 @@
 #include "capture-cv.hpp"
 
 #include <opencv2/imgproc.hpp>
-#include <libfreenect/libfreenect.h>
+#include <libfreenect.h>
 
 struct CVKinectCapture::FreenectContext
 {

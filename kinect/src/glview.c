@@ -29,7 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <libfreenect/libfreenect.h>
+#include <libfreenect.h>
 
 #ifdef _MSC_VER
 #define HAVE_STRUCT_TIMESPEC
@@ -217,7 +217,7 @@ void keyPressed(unsigned char key, int x, int y)
 	if (key == 'e') {
 		static freenect_flag_value auto_exposure = FREENECT_ON;
 		freenect_set_flag(f_dev, FREENECT_AUTO_EXPOSURE, auto_exposure);
-		freenect_set_flag(f_dev, FREENECT_AUTO_FLICKER, auto_exposure);
+		//freenect_set_flag(f_dev, FREENECT_AUTO_FLICKER, auto_exposure);
 		freenect_set_flag(f_dev, FREENECT_AUTO_WHITE_BALANCE, auto_exposure);
 		auto_exposure = auto_exposure ? FREENECT_OFF : FREENECT_ON;
 	}

@@ -6,7 +6,7 @@
 #include <string>
 
 
-#include <libfreenect/libfreenect.h>
+#include <libfreenect.h>
 
 unsigned long long IID_RGB = 0u;
 unsigned long long IID_DPT = 0u;

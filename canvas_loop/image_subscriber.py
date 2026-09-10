@@ -1,8 +1,10 @@
 import threading
+from pathlib import Path
 
 import cv2
 import numpy as np
 import zmq
+
 from aruco_detector import compute_canvas_homography
 from IndexDetector import IndexDetector
 
@@ -10,6 +12,14 @@ latest_coord = ()
 finger_on_table = False
 is_calibrated = False
 
+_HERE = Path(__file__).parent
+
+fs = cv2.FileStorage(str(_HERE / "calibration.yml"), cv2.FILE_STORAGE_READ)
+H1 = fs.getNode("H1").mat()
+H2 = fs.getNode("H2").mat()
+fs.release()
+
+w, h = 640, 480  # resolution of the kinect
 CANVAS_W, CANVAS_H = 1280, 720  # pygame canvas size
 
 DEPTH_MIN, DEPTH_MAX = 0, 2047
@@ -88,7 +98,7 @@ def rgb_worker(state: SharedState):
     subscriber.connect("ipc:///tmp/camera_rgb.ipc")
     subscriber.setsockopt_string(zmq.SUBSCRIBE, "")
 
-    detector = IndexDetector("hand_landmarker.task")
+    detector = IndexDetector(str(_HERE / "hand_landmarker.task"))
 
     H = None
     table_reference_depth_map = None

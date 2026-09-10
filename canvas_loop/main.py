@@ -1,6 +1,10 @@
 import os
 import threading
 import time
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+sign_dir = BASE_DIR / "sign"
 from datetime import datetime
 
 import image_subscriber
@@ -53,8 +57,8 @@ def main():
     canvas = pygame.Surface((width, height))
     canvas.fill(pygame.Color("#ffffff"))
 
-    raw_baptiste = pygame.image.load("signs/baptiste.png").convert_alpha()
-    raw_eraser = pygame.image.load("signs/eraser.png").convert_alpha()
+    raw_baptiste = pygame.image.load(sign_dir / "baptiste.jpg").convert()
+    raw_eraser = pygame.image.load(sign_dir / "eraser.png").convert_alpha()
     # Transparent surface redrawn every frame for the hover indicator.
     # Nothing is ever blitted onto `canvas` here, so it never persists.
     hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -84,7 +88,7 @@ def main():
     last_activated_element = None
     email_window = None
 
-    manager = pygame_gui.UIManager((width, height), theme_path="theme.json")
+    manager = pygame_gui.UIManager((width, height), theme_path=BASE_DIR / "theme.json")
 
     image_brush_cache = {}
 
@@ -235,7 +239,7 @@ def main():
     )
 
     save_button = UIButton(relative_rect=save_rect, text="Save", manager=manager)
-    with open("tutorial.html", "r") as file:
+    with open(BASE_DIR / "tutorial.html", "r") as file:
         tutorial_content = file.read()
 
     tutorial_box = UITextBox(
