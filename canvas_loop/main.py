@@ -67,12 +67,8 @@ def main():
     canvas.fill(pygame.Color("#ffffff"))
 
     raw_baptiste = pygame.image.load(sign_dir / "baptiste.png").convert_alpha()
-    raw_eraser = pygame.image.load(sign_dir / "eraser.png").convert_alpha()
-    # Transparent surface redrawn every frame for the hover indicator.
-    # Nothing is ever blitted onto `canvas` here, so it never persists.
     hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-    eraser_icon = pygame.transform.smoothscale(raw_eraser, (30, 20))
     raw_trash = pygame.image.load("signs/poubelle.png").convert_alpha()
     trash_icon = pygame.transform.smoothscale(raw_trash, (30, 20))
 
@@ -87,12 +83,12 @@ def main():
     running = True
     dt = 0
     brush_type = "circle"
+    selected_tool = "circle"
     last_pos = None
     is_drawing = False
     stroke_dirty = False
     undo_width = 80
     confirmation_dialog = None
-    last_activated_element = None
     email_window = None
 
     manager = pygame_gui.UIManager((width, height), theme_path=BASE_DIR / "theme.json")
@@ -189,23 +185,32 @@ def main():
         width - BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT
     )
 
+    # ============================================================
+    # Bottom-right tool buttons
+    # ============================================================
+
+    TOOL_BUTTON_GAP = 5
+
+    tool_button_x = width - BUTTON_WIDTH
+    tool_button_y = height - (3 * BUTTON_HEIGHT) - (2 * TOOL_BUTTON_GAP)
+
     circle_brush_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH,
-        height - 3 * BUTTON_HEIGHT - 2,
+        tool_button_x,
+        tool_button_y,
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
     )
 
     image_brush_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH,
-        height - 4 * BUTTON_HEIGHT - 3,
+        tool_button_x,
+        tool_button_y + BUTTON_HEIGHT + TOOL_BUTTON_GAP,
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
     )
 
     erase_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH,
-        height - 2 * BUTTON_HEIGHT - 1,
+        tool_button_x,
+        tool_button_y + 2 * (BUTTON_HEIGHT + TOOL_BUTTON_GAP),
         BUTTON_WIDTH,
         BUTTON_HEIGHT,
     )
@@ -254,14 +259,14 @@ def main():
 
     circle_brush_button = UIButton(
         relative_rect=circle_brush_button_rect,
-        text="Circle",
+        text="",
         manager=manager,
         object_id="#circle_brush_button",
     )
 
     image_brush_button = UIButton(
         relative_rect=image_brush_button_rect,
-        text="EPITA",
+        text="",
         manager=manager,
         object_id="#image_brush_button",
     )
@@ -672,13 +677,17 @@ def main():
 
                 if event.ui_element == circle_brush_button:
                     brush_type = "circle"
+                    selected_tool = "circle"
                     drawing_color = pygame.Color(selected_color)
 
                 if event.ui_element == image_brush_button:
                     brush_type = "image"
+                    selected_tool = "image"
                     drawing_color = pygame.Color(selected_color)
 
                 if event.ui_element == erase_button:
+                    selected_tool = "eraser"
+                    brush_type = "circle"
                     drawing_color = pygame.Color("#ffffff")
 
                 if event.ui_element == tutorial_button:
@@ -833,6 +842,83 @@ def main():
             )
 
         # ============================================================
+        # Custom tool buttons
+        # ============================================================
+
+        tool_buttons = [
+            ("CIRCLE", circle_brush_button, circle_brush_button_rect, "circle"),
+            ("EPITA", image_brush_button, image_brush_button_rect, "image"),
+            ("ERASER", erase_button, erase_button_rect, "eraser"),
+        ]
+
+        tool_font = pygame.font.Font(None, 26)
+
+        for name, button, rect, tool_type in tool_buttons:
+            is_hovered = hovered_element is button
+            is_pressed = pressed_element is button
+            is_selected = selected_tool == tool_type
+
+            # Selected tool = black border
+            if is_pressed:
+                border_color = pygame.Color("#ffffff")
+                border_width = 5
+                background_color = pygame.Color("#505050")
+
+            elif is_selected:
+                border_color = pygame.Color("#000000")
+                border_width = 5
+                background_color = pygame.Color("#d0d0d0")
+
+            elif is_hovered:
+                border_color = pygame.Color("#ffffff")
+                border_width = 4
+                background_color = pygame.Color("#b0b0b0")
+
+            else:
+                border_color = pygame.Color("#303030")
+                border_width = 2
+                background_color = pygame.Color("#eeeeee")
+
+            inner_rect = rect.inflate(-border_width * 2, -border_width * 2)
+
+            # Outer border
+            pygame.draw.rect(
+                screen,
+                border_color,
+                rect,
+                width=border_width,
+                border_radius=5,
+            )
+
+            # Button background
+            pygame.draw.rect(
+                screen,
+                background_color,
+                inner_rect,
+                border_radius=3,
+            )
+
+            # Pressed visual effect
+            if is_pressed:
+                overlay = pygame.Surface(inner_rect.size, pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 45))
+                screen.blit(overlay, inner_rect)
+
+            # Text
+            text_color = pygame.Color("#000000")
+
+            text_surface = tool_font.render(
+                name,
+                True,
+                text_color,
+            )
+
+            screen.blit(
+                text_surface,
+                text_surface.get_rect(center=rect.center),
+            )
+
+        # ============================================================
         # Kinect cursor — MUST BE LAST
         # ============================================================
 
@@ -871,8 +957,6 @@ def main():
 
         output.setText(str(slider.getValue()))
         pygame_widgets.update(events)
-        erase_icon_rect = eraser_icon.get_rect(center=erase_icon_rect.center)
-        screen.blit(eraser_icon, erase_icon_rect)
         trash_icon_rect = trash_icon.get_rect(center=trash_icon_rect.center)
         screen.blit(trash_icon, trash_icon_rect)
         screen.blit(hover_surface, (0, 0))
