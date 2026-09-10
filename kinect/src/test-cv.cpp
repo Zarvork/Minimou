@@ -19,24 +19,24 @@ int main(int argc, const char** argv)
     init_publisher();
 
     capture.set_rgb_callback([](cv::Mat& rgb, uint32_t timestamp) {
-        send_image(rgb);
+        send_rgb_image(rgb);
         //imshow("RGB", rgb);
     });
 
     capture.set_depth_callback([&](cv::Mat& depth, uint32_t timestamp) {
         cv::Mat_<uint16_t> depth16 = depth;
-
+        send_depth_image(depth);
         cv::Mat depth_rgb(depth.rows, depth.cols, CV_8UC3);
         depth16.forEach([&](uint16_t& pixel, const int position[2]) {
             rgb8 color = cmap[pixel];
             depth_rgb.at<cv::Vec3b>(position[0], position[1]) = cv::Vec3b(color.r, color.g, color.b);
         });
-        imshow("Depth", depth_rgb);
+        // imshow("Depth", depth_rgb);
     });
 
     // Create windows
     // namedWindow("RGB", WINDOW_AUTOSIZE);
-    namedWindow("Depth", WINDOW_AUTOSIZE);
+    // namedWindow("Depth", WINDOW_AUTOSIZE);
 
     // Add a button for calibration
     //createButton("Calibrate", [](int state, void* userdata) {

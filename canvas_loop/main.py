@@ -1,20 +1,21 @@
 import threading
-
 import time
+
 import image_subscriber
 import pygame
 import pygame_gui
 import pygame_widgets
 from challenge import ChallengeWindow
 from clearwindow import ClearConfirmationWindow
-from pygame_gui.elements import UIButton, UITextBox
 from colorpicker import RadialColorPickerWindow
+from pygame_gui.elements import UIButton, UITextBox
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 
 BUTTON_WIDTH = 200
 BUTTON_HEIGHT = 50
 MAX_HISTORY = 20
+HOVER_INDICATOR_PADDING = 8  # how much wider the hover circle is than the brush
 
 
 def push_canvas_state(states, index, canvas):
@@ -47,6 +48,10 @@ def main():
 
     canvas = pygame.Surface((width, height))
     canvas.fill(pygame.Color("#ffffff"))
+
+    # Transparent surface redrawn every frame for the hover indicator.
+    # Nothing is ever blitted onto `canvas` here, so it never persists.
+    hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
     raw_baptiste = pygame.image.load("baptiste.jpg").convert()
     raw_eraser = pygame.image.load("eraser.png").convert_alpha()
@@ -441,12 +446,7 @@ def main():
             position = (x, y)
 
             if brush_type == "circle":
-                pygame.draw.circle(
-                    canvas,
-                    drawing_color,
-                    position,
-                    drawing_size
-                )
+                pygame.draw.circle(canvas, drawing_color, position, drawing_size)
             elif brush_type == "image":
                 draw_image_brush(position, drawing_size)
 
@@ -455,7 +455,6 @@ def main():
         selected_color = pygame.Color(colour)
         drawing_color = pygame.Color(colour)
         update_color_picker_button(selected_color)
-
 
     def close_color_picker():
         nonlocal color_picker
@@ -467,7 +466,6 @@ def main():
     last_coord = None
     while running:
         coord = image_subscriber.latest_coord
-
         drawing_size = max(1, int(slider.getValue()))
 
         # A new Kinect coordinate was received
@@ -476,7 +474,10 @@ def main():
 
             # If we haven't received a point for a while,
             # consider this the beginning of a new stroke.
-            if previous_point is None or current_time - previous_point > nb_buffered_time:
+            if (
+                previous_point is None
+                or current_time - previous_point > nb_buffered_time
+            ):
                 last_pos = None
 
             last_coord = coord
@@ -568,7 +569,9 @@ def main():
 
                 if event.ui_element == color_picker_button and color_picker is None:
                     color_picker = RadialColorPickerWindow(
-                        pygame.Rect(width // 10, height // 10, 8 * width // 10, 8 * height // 10),
+                        pygame.Rect(
+                            width // 10, height // 10, 8 * width // 10, 8 * height // 10
+                        ),
                         manager=manager,
                         initial_colour=selected_color,
                         on_colour_changed=on_colour_changed,
@@ -623,40 +626,30 @@ def main():
                         if current_state == len(canvas_states) - 1:
                             redo_button.disable()
 
-        if is_drawing:
+        table_touching = image_subscriber.finger_on_table
+
+        if is_drawing and table_touching:
             current_pos = coord
 
             if not is_over_ui(current_pos):
                 if last_pos is None:
                     if brush_type == "circle":
                         pygame.draw.circle(
-                            canvas,
-                            drawing_color,
-                            current_pos,
-                            drawing_size
+                            canvas, drawing_color, current_pos, drawing_size
                         )
                     elif brush_type == "image":
                         draw_image_brush(current_pos, drawing_size)
 
                 elif not is_over_ui(last_pos):
-                    draw_interpolated(
-                        last_pos,
-                        current_pos,
-                        drawing_size
-                    )
+                    draw_interpolated(last_pos, current_pos, drawing_size)
 
                 last_pos = current_pos
                 stroke_dirty = True
+        elif not table_touching:
+            last_pos = None
 
-        if (
-            not is_drawing
-            and stroke_dirty
-        ):
-            current_state = push_canvas_state(
-                canvas_states,
-                current_state,
-                canvas
-            )
+        if not is_drawing and stroke_dirty:
+            current_state = push_canvas_state(canvas_states, current_state, canvas)
 
             undo_button.enable()
             redo_button.disable()
@@ -664,6 +657,25 @@ def main():
             stroke_dirty = False
 
         screen.blit(canvas, (0, 0))
+
+        # ── Hover indicator ──────────────────────────────────────────────
+        # Redrawn from scratch every frame on its own transparent surface,
+        # so it never gets baked into the canvas and never persists.
+        hover_surface.fill((0, 0, 0, 0))
+
+        is_actively_drawing = is_drawing and table_touching
+        show_hover = len(coord) != 0 and not is_actively_drawing
+
+        if show_hover:
+            hover_pos = (int(coord[0]), int(coord[1]))
+            hover_radius = drawing_size + HOVER_INDICATOR_PADDING
+            pygame.draw.circle(
+                hover_surface, (0, 0, 0, 180), hover_pos, hover_radius, width=2
+            )
+
+        screen.blit(hover_surface, (0, 0))
+        # ─────────────────────────────────────────────────────────────────
+
         manager.update(dt)
         manager.draw_ui(screen)
 

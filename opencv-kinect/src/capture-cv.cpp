@@ -47,7 +47,7 @@ CVKinectCapture::CVKinectCapture(resolution video_res, resolution depth_res)
     if (freenect_open_device(fn_ctx, &ctx->fn_dev, 0) < 0)
         throw std::runtime_error("Failed to open device");
 
-    auto mode_depth = freenect_find_depth_mode((freenect_resolution) depth_res, FREENECT_DEPTH_11BIT);
+    auto mode_depth = freenect_find_depth_mode((freenect_resolution) depth_res, FREENECT_DEPTH_REGISTERED);
     if (freenect_set_depth_mode(ctx->fn_dev, mode_depth) < 0)
         throw std::runtime_error("Failed to set depth mode");
 

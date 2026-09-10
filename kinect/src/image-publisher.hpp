@@ -7,5 +7,6 @@
 #include <vector>
 
 void init_publisher();
-void send_image(cv::Mat& frame);
+void send_rgb_image(cv::Mat& frame);
+void send_depth_image(cv::Mat& frame);
 void close_publisher();
