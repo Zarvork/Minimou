@@ -3,18 +3,17 @@ import threading
 import time
 from datetime import datetime
 
+import image_subscriber
 import pygame
 import pygame_gui
 import pygame_widgets
+from clearwindow import ClearConfirmationWindow
+from colorpicker import RadialColorPickerWindow
+from emailwindow import EmailWindow
 from pygame_gui.elements import UIButton, UITextBox
 from pygame_gui.windows import UIColourPickerDialog
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
-
-import image_subscriber
-from clearwindow import ClearConfirmationWindow
-from colorpicker import RadialColorPickerWindow
-from emailwindow import EmailWindow
 from send_email import send_canvas_by_email
 
 BUTTON_WIDTH = 200
@@ -60,7 +59,7 @@ def main():
     # Nothing is ever blitted onto `canvas` here, so it never persists.
     hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
 
-    eraser_icon = pygame.transform.smoothscale(raw_eraser, (BUTTON_WIDTH - 20, 40))
+    eraser_icon = pygame.transform.smoothscale(raw_eraser, (30, 20))
     raw_trash = pygame.image.load("signs/poubelle.png").convert_alpha()
     trash_icon = pygame.transform.smoothscale(raw_trash, (30, 20))
 
@@ -747,12 +746,12 @@ def main():
         # so it never gets baked into the canvas and never persists.
         hover_surface.fill((0, 0, 0, 0))
 
-        is_actively_drawing = is_drawing and table_touching
-        show_hover = len(coord) != 0 and not is_actively_drawing
-
-        if show_hover:
+        if len(coord) > 0:
             hover_pos = (int(coord[0]), int(coord[1]))
             hover_radius = drawing_size + HOVER_INDICATOR_PADDING
+            pygame.draw.circle(
+                hover_surface, (255, 255, 255, 180), hover_pos, hover_radius, width=3
+            )
             pygame.draw.circle(
                 hover_surface, (0, 0, 0, 180), hover_pos, hover_radius, width=2
             )
