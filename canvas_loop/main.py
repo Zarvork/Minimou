@@ -12,10 +12,8 @@ import pygame
 import pygame_gui
 import pygame_widgets
 from clearwindow import ClearConfirmationWindow
-from colorpicker import RadialColorPickerWindow
 from emailwindow import EmailWindow
 from pygame_gui.elements import UIButton, UITextBox
-from pygame_gui.windows import UIColourPickerDialog
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 from send_email import send_canvas_by_email
@@ -54,6 +52,17 @@ def main():
     selected_color = pygame.Color("#000000")
     drawing_color = pygame.Color(selected_color)
 
+    COLORS = [
+        ("BLACK", "#000000"),
+        ("GREY", "#808080"),
+        ("BLUE", "#0000ff"),
+        ("CYAN", "#00ffff"),
+        ("GREEN", "#00ff00"),
+        ("YELLOW", "#ffff00"),
+        ("RED", "#ff0000"),
+        ("MAGENTA", "#ff00ff"),
+    ]
+
     canvas = pygame.Surface((width, height))
     canvas.fill(pygame.Color("#ffffff"))
 
@@ -82,13 +91,14 @@ def main():
     is_drawing = False
     stroke_dirty = False
     undo_width = 80
-    color_picker_display_color = pygame.Color("#000000")
     confirmation_dialog = None
-    color_picker = None
     last_activated_element = None
     email_window = None
 
     manager = pygame_gui.UIManager((width, height), theme_path=BASE_DIR / "theme.json")
+    # ================================================
+    #                 Color Palette
+    # ================================================
 
     image_brush_cache = {}
 
@@ -136,9 +146,40 @@ def main():
 
     # pygame.draw.rect(screen, pygame.Color("#F4F7FB"), toolbar_rect)
 
-    color_picker_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH, height - BUTTON_HEIGHT, BUTTON_WIDTH, BUTTON_HEIGHT
-    )
+    # ================================================
+    #                 Color Palette
+    # ================================================
+
+    COLOR_BUTTON_WIDTH = BUTTON_WIDTH // 2
+    COLOR_BUTTON_HEIGHT = 50
+
+    color_button_rects = []
+    color_buttons = []
+
+    palette_x = width - BUTTON_WIDTH
+    palette_y = 100
+
+    for index, (name, color_hex) in enumerate(COLORS):
+        column = index % 2
+        row = index // 2
+
+        rect = pygame.Rect(
+            palette_x + column * COLOR_BUTTON_WIDTH,
+            palette_y + row * COLOR_BUTTON_HEIGHT,
+            COLOR_BUTTON_WIDTH,
+            COLOR_BUTTON_HEIGHT,
+        )
+
+        color_button_rects.append(rect)
+
+        button = UIButton(
+            relative_rect=rect,
+            text="",
+            manager=manager,
+            object_id=f"#color_button_{name.lower()}",
+        )
+
+        color_buttons.append(button)
 
     clear_button_rect = pygame.Rect(
         width - BUTTON_WIDTH, 0, BUTTON_WIDTH, BUTTON_HEIGHT
@@ -177,8 +218,6 @@ def main():
         width - BUTTON_WIDTH // 2 - 15, BUTTON_HEIGHT // 2 - 10, 30, 20
     )
 
-    inner_rect = color_picker_button_rect.inflate(-4, -4)
-
     # ================================================
     #              Define Actual Buttons
     # ================================================
@@ -198,13 +237,6 @@ def main():
         object_id="#redo_button",
     )
     redo_button.disable()
-
-    color_picker_button = UIButton(
-        relative_rect=color_picker_button_rect,
-        text="",
-        manager=manager,
-        object_id="#color_picker_button",
-    )
 
     clear_button = UIButton(
         relative_rect=clear_button_rect,
@@ -250,16 +282,6 @@ def main():
     #              Helper Functions
     # ================================================
 
-    def on_colour_changed(colour):
-        nonlocal selected_color, drawing_color
-        selected_color = pygame.Color(colour)
-        drawing_color = pygame.Color(colour)
-        update_color_picker_button(selected_color)
-
-    def close_color_picker():
-        nonlocal color_picker
-        color_picker = None
-
     def clear_canvas():
         nonlocal current_state
 
@@ -271,29 +293,31 @@ def main():
         redo_button.disable()
 
     def is_over_ui(pos):
-        return (
+        if (
             slider_rect.collidepoint(pos)
             or output_rect.collidepoint(pos)
             or erase_button_rect.collidepoint(pos)
             or undo_button_rect.collidepoint(pos)
             or redo_button_rect.collidepoint(pos)
-            or color_picker_button_rect.collidepoint(pos)
             or clear_button_rect.collidepoint(pos)
             or circle_brush_button_rect.collidepoint(pos)
             or image_brush_button_rect.collidepoint(pos)
             or tutorial_button_rect.collidepoint(pos)
             or save_rect.collidepoint(pos)
-            or (tutorial_rect.collidepoint(pos) if tutorial_box.visible else False)
-        )
+        ):
+            return True
+
+        for rect in color_button_rects:
+            if rect.collidepoint(pos):
+                return True
+
+        if tutorial_box.visible and tutorial_rect.collidepoint(pos):
+            return True
+
+        return False
 
     def get_hovered_element(pos):
-        """Return whichever clickable UI element (if any) contains pos.
-
-        When a popup window (clear confirmation, colour picker)
-        is open, only that popup's own buttons - including its title-bar
-        close ("X") button - are reachable, mirroring how a real click
-        can't reach the toolbar underneath a modal window.
-        """
+        """Return the UI element underneath the Kinect cursor."""
 
         popup_elements = []
 
@@ -304,11 +328,9 @@ def main():
                 confirmation_dialog.cancel_button,
             ]
 
-        if color_picker is not None:
+        if email_window is not None:
             popup_elements += [
-                color_picker.close_window_button,
-                getattr(color_picker, "ok_button", None),
-                getattr(color_picker, "cancel_button", None),
+                email_window.close_window_button,
             ]
 
         if popup_elements:
@@ -317,13 +339,15 @@ def main():
             candidates = [
                 undo_button if undo_button.is_enabled else None,
                 redo_button if redo_button.is_enabled else None,
-                color_picker_button,
                 clear_button,
                 circle_brush_button,
                 image_brush_button,
                 erase_button,
                 tutorial_button,
+                save_button,
             ]
+
+            candidates += color_buttons
 
         for element in candidates:
             if element is not None and element.rect.collidepoint(pos):
@@ -331,13 +355,13 @@ def main():
 
         return None
 
+    def select_color(color):
+        nonlocal selected_color, drawing_color
+
+        selected_color = pygame.Color(color)
+        drawing_color = pygame.Color(selected_color)
+
     def activate_element(element):
-        """Fire the same event pygame_gui posts when this element is clicked.
-
-        This lets every existing click handler (ours, the popup windows',
-        and pygame_gui's own colour picker) run completely unchanged.
-        """
-
         pygame.event.post(
             pygame.event.Event(
                 pygame_gui.UI_BUTTON_PRESSED,
@@ -367,10 +391,6 @@ def main():
         nonlocal confirmation_dialog
 
         confirmation_dialog = None
-
-    def update_color_picker_button(color):
-        nonlocal color_picker_display_color
-        color_picker_display_color = pygame.Color(color)
 
     def _make_circular_brush(size):
         size = max(1, int(size))
@@ -482,16 +502,26 @@ def main():
     #                  Game Loop
     # ================================================
     last_coord = None
+    hovered_element = None
+    pressed_element = None
     while running:
+        any_popup_open = (
+            confirmation_dialog is not None
+            or email_window is not None
+            or tutorial_box.visible
+        )
         coord = image_subscriber.latest_coord
         drawing_size = max(1, int(slider.getValue()))
 
-        # A new Kinect coordinate was received
+        is_touching = image_subscriber.finger_on_table
+
+        # ============================================================
+        # Kinect interaction
+        # ============================================================
+
         if len(coord) != 0 and coord != last_coord:
             current_time = time.monotonic()
 
-            # If we haven't received a point for a while,
-            # consider this the beginning of a new stroke.
             if (
                 previous_point is None
                 or current_time - previous_point > nb_buffered_time
@@ -501,39 +531,80 @@ def main():
             last_coord = coord
             previous_point = current_time
 
-            any_popup_open = confirmation_dialog is not None or color_picker is not None
+            any_popup_open = (
+                confirmation_dialog is not None
+                or email_window is not None
+                or tutorial_box.visible
+            )
+
+            # --------------------------------------------------------
+            # Slider
+            # --------------------------------------------------------
 
             if not any_popup_open and slider_rect.collidepoint(coord):
-                # Over the brush-size slider: drag its handle continuously
-                # rather than treating it as a discrete button click.
                 update_slider_from_point(coord)
 
-                last_activated_element = None
+                hovered_element = None
+                pressed_element = None
                 is_drawing = False
                 last_pos = None
+
             else:
-                hovered_element = get_hovered_element(coord)
+                # ----------------------------------------------------
+                # Find what the Kinect cursor is hovering
+                # ----------------------------------------------------
 
-                if hovered_element is not None:
-                    # Only fire once per "entry" onto the element, so
-                    # lingering on it doesn't repeatedly re-trigger the
-                    # action. Moving off and back on (or onto a different
-                    # element) re-arms it.
-                    if hovered_element is not last_activated_element:
-                        activate_element(hovered_element)
+                new_hovered_element = get_hovered_element(coord)
 
-                    last_activated_element = hovered_element
-                    is_drawing = False
-                    last_pos = None
-                elif any_popup_open:
-                    # A modal popup is open and the point isn't over any of
-                    # its buttons: don't let it draw on the canvas behind it.
-                    last_activated_element = None
-                    is_drawing = False
-                    last_pos = None
+                # Update hover state even when we are NOT touching.
+                hovered_element = new_hovered_element
+
+                # ----------------------------------------------------
+                # Button pressing
+                # ----------------------------------------------------
+
+                if is_touching:
+                    if hovered_element is not None:
+                        # Only trigger once when the finger first touches
+                        # a button.
+                        if pressed_element is not hovered_element:
+                            pressed_element = hovered_element
+                            activate_element(hovered_element)
+
+                        is_drawing = False
+                        last_pos = None
+
+                    elif any_popup_open:
+                        pressed_element = None
+                        is_drawing = False
+                        last_pos = None
+
+                    else:
+                        pressed_element = None
+                        is_drawing = True
+
                 else:
-                    last_activated_element = None
-                    is_drawing = True
+                    # Finger is NOT touching the table.
+                    # Therefore nothing gets activated.
+                    pressed_element = None
+
+                    # If hovering a button, don't draw.
+                    if hovered_element is not None:
+                        is_drawing = False
+                        last_pos = None
+
+                    elif any_popup_open:
+                        is_drawing = False
+                        last_pos = None
+
+                    else:
+                        is_drawing = False
+
+        else:
+            # No new Kinect coordinate.
+            # Don't repeatedly press anything.
+            if not is_touching:
+                pressed_element = None
 
         if (
             is_drawing
@@ -555,7 +626,6 @@ def main():
                 if (
                     not is_over_ui(event.pos)
                     and confirmation_dialog is None
-                    and color_picker is None
                     and not tutorial_box.visible
                     and email_window is None
                 ):
@@ -582,24 +652,16 @@ def main():
                 #       if event.ui_element == challenge_window:
                 #          challenge_window = None
 
-                if event.ui_element == color_picker:
-                    color_picker = None
-
                 if event.ui_element == email_window:
                     email_window = None
 
-            if event.type == pygame_gui.UI_COLOUR_PICKER_COLOUR_PICKED:
-                picked_color = pygame.Color(event.colour)
-                selected_color = pygame.Color(picked_color)
-                drawing_color = pygame.Color(picked_color)
-
-                update_color_picker_button(selected_color)
-
-                if color_picker is not None:
-                    color_picker.kill()
-                    color_picker = None
-
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                for index, button in enumerate(color_buttons):
+                    if event.ui_element == button:
+                        _, color_hex = COLORS[index]
+                        select_color(color_hex)
+                        break
+
                 if event.ui_element == clear_button and confirmation_dialog is None:
                     confirmation_dialog = ClearConfirmationWindow(
                         pygame.Rect(width // 2 - 300, height // 2 - 175, 600, 350),
@@ -607,26 +669,6 @@ def main():
                         on_confirm=clear_canvas,
                         on_close=close_confirmation,
                     )
-
-                if event.ui_element == color_picker_button and color_picker is None:
-                    color_picker = RadialColorPickerWindow(
-                        pygame.Rect(
-                            width // 10, height // 10, 8 * width // 10, 8 * height // 10
-                        ),
-                        manager=manager,
-                        initial_colour=selected_color,
-                        on_colour_changed=on_colour_changed,
-                        on_close=close_color_picker,
-                    )
-
-                #        if event.ui_element == challenge_button and challenge_window is None:
-                #           challenge_window = ChallengeWindow(
-                #              pygame.Rect(width // 2 - 200, height // 2 - 180, 400, 360),
-                #             manager=manager,
-                #            on_easy=launch_easy,
-                #           on_medium=launch_medium,
-                #          on_hard=launch_hard,
-                #     )
 
                 if event.ui_element == circle_brush_button:
                     brush_type = "circle"
@@ -676,42 +718,6 @@ def main():
                         on_close=close_email_window,
                     )
 
-        # TODO: Same with Rects and other
-        """
-        def handle_drawing():
-            current_pos = pygame.mouse.get_pos()
-
-            if not is_over_ui(current_pos):
-                if last_pos is not None and not is_over_ui(last_pos):
-                    distance = pygame.Vector2(current_pos).distance_to(last_pos)
-
-                    step = max(drawing_size / 4, 1)
-                    steps = max(int(distance / step), 1)
-
-                    for i in range(steps + 1):
-                        t = i / steps
-
-                        interp_x = (last_pos[0] + (current_pos[0] - last_pos[0]) * t)
-                        interp_y = (last_pos[1] + (current_pos[1] - last_pos[1]) * t)
-
-                        position = (int(interp_x), int(interp_y))
-
-                        if brush_type == "circle":
-                            pygame.draw.circle(
-                                canvas,
-                                drawing_color,
-                                position,
-                                drawing_size
-                            )
-                        elif brush_type == "image":
-                            draw_image_brush(
-                                position,
-                                drawing_size
-                            )
-                    stroke_dirty = True
-            last_pos = current_pos
-        """
-
         table_touching = image_subscriber.finger_on_table
 
         if is_drawing and table_touching:
@@ -744,45 +750,124 @@ def main():
             last_pos = current_pos
 
         screen.blit(canvas, (0, 0))
-
-        # ── Hover indicator ──────────────────────────────────────────────
-        # Redrawn from scratch every frame on its own transparent surface,
-        # so it never gets baked into the canvas and never persists.
-        hover_surface.fill((0, 0, 0, 0))
-
-        if len(coord) > 0:
-            hover_pos = (int(coord[0]), int(coord[1]))
-            hover_radius = drawing_size + HOVER_INDICATOR_PADDING
-            pygame.draw.circle(
-                hover_surface, (255, 255, 255, 180), hover_pos, hover_radius, width=3
-            )
-            pygame.draw.circle(
-                hover_surface, (0, 0, 0, 180), hover_pos, hover_radius, width=2
-            )
-
         screen.blit(hover_surface, (0, 0))
-        # ─────────────────────────────────────────────────────────────────
 
         manager.update(dt)
         manager.draw_ui(screen)
 
-        color = color_picker_display_color
+        # ============================================================
+        # Custom color buttons
+        # ============================================================
 
-        border_color = color.lerp(pygame.Color("#000000"), 0.25)
-        pygame.draw.rect(
-            screen, border_color, color_picker_button_rect, border_radius=4
-        )
-        pygame.draw.rect(screen, color, inner_rect, border_radius=3)
+        for index, (name, color_hex) in enumerate(COLORS):
+            rect = color_button_rects[index]
+            color = pygame.Color(color_hex)
 
-        brightness = (color.r * 299 + color.g * 587 + color.b * 114) / 1000
-        text_color = (
-            pygame.Color("#000000") if brightness > 128 else pygame.Color("#ffffff")
-        )
-        font = pygame.font.Font(None, 28)
-        color_text = font.render("Color", True, text_color)
-        screen.blit(
-            color_text, color_text.get_rect(center=color_picker_button_rect.center)
-        )
+            is_hovered = hovered_element is color_buttons[index]
+            is_pressed = pressed_element is color_buttons[index]
+
+            # Selected color gets a stronger border.
+            is_selected = color == selected_color
+
+            if is_pressed:
+                border_color = pygame.Color("#ffffff")
+                border_width = 5
+                inner_rect = rect.inflate(-8, -8)
+
+            elif is_selected:
+                border_color = pygame.Color("#000000")
+                border_width = 5
+                inner_rect = rect.inflate(-8, -8)
+
+            elif is_hovered:
+                border_color = pygame.Color("#ffffff")
+                border_width = 4
+                inner_rect = rect.inflate(-6, -6)
+
+            else:
+                border_color = pygame.Color("#303030")
+                border_width = 2
+                inner_rect = rect.inflate(-4, -4)
+
+            # Outer border
+            pygame.draw.rect(
+                screen,
+                border_color,
+                rect,
+                width=border_width,
+                border_radius=4,
+            )
+
+            # Button background
+            pygame.draw.rect(
+                screen,
+                color,
+                inner_rect,
+                border_radius=3,
+            )
+
+            # Slight pressed effect
+            if is_pressed:
+                overlay = pygame.Surface(inner_rect.size, pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 45))
+                screen.blit(overlay, inner_rect)
+
+            # Text brightness
+            brightness = (color.r * 299 + color.g * 587 + color.b * 114) / 1000
+
+            text_color = (
+                pygame.Color("#000000") if brightness > 128 else pygame.Color("#ffffff")
+            )
+
+            font = pygame.font.Font(None, 24)
+
+            text_surface = font.render(
+                name,
+                True,
+                text_color,
+            )
+
+            screen.blit(
+                text_surface,
+                text_surface.get_rect(center=rect.center),
+            )
+
+        # ============================================================
+        # Kinect cursor — MUST BE LAST
+        # ============================================================
+
+        hover_surface.fill((0, 0, 0, 0))
+
+        if len(coord) > 0:
+            hover_pos = (int(coord[0]), int(coord[1]))
+
+            if pressed_element is not None:
+                cursor_color = (255, 255, 255, 230)
+                cursor_width = 5
+            elif hovered_element is not None:
+                cursor_color = (255, 255, 255, 210)
+                cursor_width = 3
+            else:
+                cursor_color = (255, 255, 255, 180)
+                cursor_width = 3
+
+            hover_radius = drawing_size + HOVER_INDICATOR_PADDING
+
+            pygame.draw.circle(
+                hover_surface,
+                cursor_color,
+                hover_pos,
+                hover_radius,
+                width=cursor_width,
+            )
+
+            pygame.draw.circle(
+                hover_surface,
+                (0, 0, 0, 180),
+                hover_pos,
+                hover_radius,
+                width=2,
+            )
 
         output.setText(str(slider.getValue()))
         pygame_widgets.update(events)
@@ -790,6 +875,7 @@ def main():
         screen.blit(eraser_icon, erase_icon_rect)
         trash_icon_rect = trash_icon.get_rect(center=trash_icon_rect.center)
         screen.blit(trash_icon, trash_icon_rect)
+        screen.blit(hover_surface, (0, 0))
         pygame.display.flip()
 
         dt = clock.tick(60) / 1000
