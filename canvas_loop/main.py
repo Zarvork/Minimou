@@ -20,12 +20,232 @@ from send_email import send_canvas_by_email
 
 BUTTON_WIDTH = 80
 BUTTON_HEIGHT = 50
-MAX_HISTORY = 20
+COLOR_BUTTON_WIDTH = BUTTON_WIDTH
+COLOR_BUTTON_HEIGHT = 50
+UNDO_WIDTH= 80
+TOOLBOX_PADDING = 20
+TOOLBOX_FACTOR = 1.2
+MAX_HISTORY = 20  # how many undo/redos are possible
 HOVER_INDICATOR_PADDING = 8  # how much wider the hover circle is than the brush
 
 
+COLORS = [
+    ("B", "#000000"),
+    ("G", "#808080"),
+    ("B", "#0000ff"),
+    ("C", "#00ffff"),
+    ("G", "#00ff00"),
+    ("Y", "#ffff00"),
+    ("R", "#ff0000"),
+    ("M", "#ff00ff"),
+]
+
+class GameManager():
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.clock = pygame.time.Clock()
+        self.screen = pygame.display.set_mode((width, height))
+        self.manager = pygame_gui.UIManager((width, height), theme_path=BASE_DIR / "theme.json")
+        self.canvas = pygame.Surface((width, height))
+        self.canvas.fill(pygame.Color("#ffffff"))
+        self.selected_color = pygame.Color("#000000")
+        self.drawing_color = pygame.Color(self.selected_color)
+
+def select_color(game_manager, color):
+    game_manager.selected_color = pygame.Color(color)
+    game_manager.drawing_color = pygame.Color(game_manager.selected_color)
+
+GAME_BUTTONS = {}
+def load_game_buttons(game_manager):
+    global GAME_BUTTONS
+    GAME_BUTTONS["undo"] = UIButton(
+        relative_rect=GAME_RECTS["undo"],
+        text="",
+        manager=game_manager.manager,
+        object_id="#undo_button",
+    )
+    GAME_BUTTONS["undo"].disable()
+
+    GAME_BUTTONS["redo"] = UIButton(
+        relative_rect=GAME_RECTS["redo"],
+        text="",
+        manager=game_manager.manager,
+        object_id="#redo_button",
+    )
+    GAME_BUTTONS["redo"].disable()
+
+    GAME_BUTTONS["clear"] = UIButton(
+        relative_rect=GAME_RECTS["clear"],
+        text="",
+        manager=game_manager.manager,
+        object_id="#clear_button",
+    )
+
+    GAME_BUTTONS["erase"] = UIButton(
+        relative_rect=GAME_RECTS["erase"],
+        text="",
+        manager=game_manager.manager,
+        object_id="#eraser_button",
+    )
+
+    GAME_BUTTONS["circle_brush"] = UIButton(
+        relative_rect=GAME_RECTS["circle_brush"],
+        text="",
+        manager=game_manager.manager,
+        object_id="#circle_brush_button",
+    )
+
+    GAME_BUTTONS["image_brush"] = UIButton(
+        relative_rect=GAME_RECTS["image_brush"],
+        text="",
+        manager=game_manager.manager,
+        object_id="#image_brush_button",
+    )
+
+    GAME_BUTTONS["save"] = UIButton(
+        relative_rect=GAME_RECTS["save"],
+        text="Save",
+        manager=game_manager.manager
+    )
+
+    for index, (name, _) in enumerate(COLORS):
+        button = UIButton(
+            relative_rect=GAME_RECTS[f"color_{index}"],
+            text="",
+            manager=game_manager.manager,
+            object_id=f"#color_button_{name.lower()}",
+        )
+
+        GAME_BUTTONS[f"color_{index}"] = button
+
+GAME_RECTS = {}
+def load_bounding_boxes(width, height):
+    global GAME_RECTS
+
+    GAME_RECTS["slider"] = pygame.Rect(
+        BUTTON_WIDTH + 10 + 10,
+        10,
+        width - 2 * BUTTON_WIDTH - 40,
+        BUTTON_HEIGHT
+    )
+
+    GAME_RECTS["undo"] = pygame.Rect(
+        width // 2 - 10 - UNDO_WIDTH,
+        height - BUTTON_HEIGHT - 10,
+        UNDO_WIDTH,
+        BUTTON_HEIGHT
+    )
+
+    GAME_RECTS["redo"] = pygame.Rect(
+        width // 2 + 10,
+        height - BUTTON_HEIGHT - 10,
+        UNDO_WIDTH,
+        BUTTON_HEIGHT
+    )
+
+    GAME_RECTS["clear"] = pygame.Rect(
+        width - 2 * BUTTON_WIDTH - 10,
+        height - BUTTON_HEIGHT - 10,
+        2 * BUTTON_WIDTH,
+        BUTTON_HEIGHT
+    )
+
+    GAME_RECTS["save"] = pygame.Rect(
+        10,
+        height - BUTTON_HEIGHT - 10,
+        2 * BUTTON_WIDTH,
+        BUTTON_HEIGHT
+    )
+
+    GAME_RECTS["circle_brush"] = pygame.Rect(
+        10,
+        height // 2 - 3 * BUTTON_HEIGHT - 50,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
+    )
+
+    GAME_RECTS["image_brush"] = pygame.Rect(
+        10,
+        height // 2 - BUTTON_HEIGHT // 2 - 50,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
+    )
+
+    GAME_RECTS["epita_icon"] = pygame.Rect(
+        10 + BUTTON_WIDTH // 2 - 30,
+        height // 2 - 50 - 18,
+        60,
+        40,
+    )
+
+    GAME_RECTS["erase"] = pygame.Rect(
+        10,
+        height // 2 + 2 * BUTTON_HEIGHT - 50,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
+    )
+
+    GAME_RECTS["erase_icon"] = pygame.Rect(
+        10 + BUTTON_WIDTH // 2 - 15,
+        height // 2 + 2 * BUTTON_HEIGHT - 50 + BUTTON_HEIGHT // 2 - 10,
+        30,
+        20,
+    )
+
+    GAME_RECTS["trash_icon"] = pygame.Rect(
+        width - BUTTON_WIDTH - 10 - 10,
+        height - BUTTON_HEIGHT // 2 - 20,
+        20,
+        20
+    )
+
+    left_tool_rects = [GAME_RECTS["circle_brush"], GAME_RECTS["image_brush"], GAME_RECTS["erase"]]
+    left_toolbox_rect = left_tool_rects[0].unionall(left_tool_rects[1:]).inflate(
+        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
+    )
+    left_toolbox_rect.left = max(0, left_toolbox_rect.left)
+
+    color_button_rects = []
+
+    for index, (name, color_hex) in enumerate(COLORS):
+        rect = pygame.Rect(
+            width - COLOR_BUTTON_WIDTH - 10,
+            20 + (20 + COLOR_BUTTON_HEIGHT) * index,
+            COLOR_BUTTON_WIDTH,
+            COLOR_BUTTON_HEIGHT,
+        )
+
+        GAME_RECTS[f"color_{index}"] = rect
+        color_button_rects.append(rect)
+
+    right_toolbox_rect = color_button_rects[0].unionall(color_button_rects[1:]).inflate(
+        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
+    )
+    right_toolbox_rect.right = min(width, right_toolbox_rect.right)
+
+    GAME_RECTS["left_toolbox"] = left_toolbox_rect
+    GAME_RECTS["right_toolbox"] = right_toolbox_rect
+
+ICONS = {}
+def load_icons():
+    global ICONS
+    raw_baptiste = pygame.image.load(sign_dir / "baptiste.png").convert_alpha()
+    ICONS["epita"] = pygame.transform.smoothscale(raw_baptiste, (60, 40))
+
+    raw_trash = pygame.image.load("signs/poubelle.png").convert_alpha()
+    ICONS["trash"] = pygame.transform.smoothscale(raw_trash, (20, 20))
+
+    raw_eraser = pygame.image.load(sign_dir / "eraser.png").convert_alpha()
+    ICONS["eraser"] = pygame.transform.smoothscale(raw_eraser, (60, 40))
+
+
 def push_canvas_state(states, index, canvas):
-    """Add a new canvas state and remove any redo states."""
+    """
+    Pushes a new state of the canvas to the list `states`
+
+    used for the undo/redo mechanic
+    """
 
     del states[index + 1 :]
     states.append(canvas.copy())
@@ -36,50 +256,25 @@ def push_canvas_state(states, index, canvas):
 
     return index + 1
 
-
 def main():
     # ================================================
     #          Initialize Pygame variables
     # ================================================
-
     pygame.init()
     threading.Thread(target=image_subscriber.receive_image, daemon=True).start()
 
-    clock = pygame.time.Clock()
-    screen = pygame.display.set_mode((1280, 720))
+    game_manager = GameManager(1280, 720)
+    screen = game_manager.screen
     width, height = screen.get_size()
+    canvas = game_manager.canvas
 
-    selected_color = pygame.Color("#000000")
-    drawing_color = pygame.Color(selected_color)
-
-    COLORS = [
-        ("B", "#000000"),
-        ("G", "#808080"),
-        ("B", "#0000ff"),
-        ("C", "#00ffff"),
-        ("G", "#00ff00"),
-        ("Y", "#ffff00"),
-        ("R", "#ff0000"),
-        ("M", "#ff00ff"),
-    ]
-
-    canvas = pygame.Surface((width, height))
-    canvas.fill(pygame.Color("#ffffff"))
-
-    raw_baptiste = pygame.image.load(sign_dir / "baptiste.png").convert_alpha()
-    epita_icon = pygame.transform.smoothscale(raw_baptiste, (60, 40))
-    hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
-
-    raw_trash = pygame.image.load("signs/poubelle.png").convert_alpha()
-    trash_icon = pygame.transform.smoothscale(raw_trash, (30, 20))
-
-    raw_eraser = pygame.image.load(sign_dir / "eraser.png").convert_alpha()
-    eraser_icon = pygame.transform.smoothscale(raw_eraser, (60, 40))
+    load_icons()
+    load_bounding_boxes(width, height)
+    load_game_buttons(game_manager)
 
     # ================================================
     #            Define Python variables
     # ================================================
-
     nb_buffered_time = 0.5
     previous_point = None
     canvas_states = [canvas.copy()]
@@ -91,15 +286,12 @@ def main():
     last_pos = None
     is_drawing = False
     stroke_dirty = False
-    undo_width = 80
     confirmation_dialog = None
     email_window = None
 
-    manager = pygame_gui.UIManager((width, height), theme_path=BASE_DIR / "theme.json")
     # ================================================
-    #                 Color Palette
+    #              Slider and toolboxes
     # ================================================
-
     image_brush_cache = {}
 
     slider = Slider(
@@ -119,234 +311,59 @@ def main():
         initial=10,
     )
 
-    # ================================================
-    #              Define Bouding Rects
-    # ================================================
-
-    slider_rect = pygame.Rect(BUTTON_WIDTH + 10 + 10, 10, width - 2 * BUTTON_WIDTH - 40, BUTTON_HEIGHT)
-
-    # tutorial_button_rect = pygame.Rect(0, height - 50, 140, 50)
-
-    # tutorial_rect = pygame.Rect(width // 2 - 350, height // 2 - 275, 700, 550)
-
-    undo_button_rect = pygame.Rect(
-        width // 2 - 10 - undo_width, height - BUTTON_HEIGHT - 10, undo_width, BUTTON_HEIGHT
-    )
-
-    redo_button_rect = pygame.Rect(
-        width // 2 + 10, height - BUTTON_HEIGHT - 10, undo_width, BUTTON_HEIGHT
-    )
-
-    # toolbar_rect = pygame.Rect(width - BUTTON_WIDTH - 24, 0, BUTTON_WIDTH + 24, height)
-
-    # pygame.draw.rect(screen, pygame.Color("#F4F7FB"), toolbar_rect)
-
-    # ================================================
-    #                 Color Palette
-    # ================================================
-
-    COLOR_BUTTON_WIDTH = BUTTON_WIDTH
-    COLOR_BUTTON_HEIGHT = 50
-
-    color_button_rects = []
-    color_buttons = []
-
-    palette_x = width - BUTTON_WIDTH
-    palette_y = 100
-
-    for index, (name, color_hex) in enumerate(COLORS):
-
-        rect = pygame.Rect(
-            width - COLOR_BUTTON_WIDTH - 10,
-            20 + (20 + COLOR_BUTTON_HEIGHT) * index,
-            COLOR_BUTTON_WIDTH,
-            COLOR_BUTTON_HEIGHT,
-        )
-
-        color_button_rects.append(rect)
-
-        button = UIButton(
-            relative_rect=rect,
-            text="",
-            manager=manager,
-            object_id=f"#color_button_{name.lower()}",
-        )
-
-        color_buttons.append(button)
-
-    clear_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH - 10, height - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT
-    )
-
-    save_rect = pygame.Rect(
-        10, height - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT
-    )
-
-    # ============================================================
-    # Bottom-right tool buttons
-    # ============================================================
-
-    circle_brush_button_rect = pygame.Rect(
-        10,
-        height // 2 - 3 * BUTTON_HEIGHT - 50,
-        BUTTON_WIDTH,
-        BUTTON_HEIGHT,
-    )
-
-    image_brush_button_rect = pygame.Rect(
-        10,
-        height // 2 - BUTTON_HEIGHT // 2 - 50,
-        BUTTON_WIDTH,
-        BUTTON_HEIGHT,
-    )
-
-    epita_icon_rect = pygame.Rect(
-        10 + BUTTON_WIDTH // 2 - 30,
-        height // 2 - BUTTON_HEIGHT // 2 - 50 + BUTTON_HEIGHT // 2 - 18,
-        60,
-        40,
-    )
-
-    erase_button_rect = pygame.Rect(
-        10,
-        height // 2 + 2 * BUTTON_HEIGHT - 50,
-        BUTTON_WIDTH,
-        BUTTON_HEIGHT,
-    )
-
-    erase_icon_rect = pygame.Rect(
-        10 + BUTTON_WIDTH // 2 - 15,
-        height // 2 + 2 * BUTTON_HEIGHT - 50 + BUTTON_HEIGHT // 2 - 10,
-        30,
-        20,
-    )
-
-    trash_icon_rect = pygame.Rect(
-        width - BUTTON_WIDTH // 2 - 10 - 15, height - BUTTON_HEIGHT // 2 - 20, 30, 20
-    )
-
-    # ================================================
-    #      Bounding boxes for button groups
-    # ================================================
-
-    TOOLBOX_PADDING = 20
-    TOOLBOX_FACTOR = 1.2
-
-    left_tool_rects = [circle_brush_button_rect, image_brush_button_rect, erase_button_rect]
-    left_toolbox_rect = left_tool_rects[0].unionall(left_tool_rects[1:]).inflate(
-        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
-    )
-    left_toolbox_rect.left = max(0, left_toolbox_rect.left)
-
-    right_toolbox_rect = color_button_rects[0].unionall(color_button_rects[1:]).inflate(
-        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
-    )
-    right_toolbox_rect.right = min(width, right_toolbox_rect.right)
-
     toolbox_font = pygame.font.Font(None, 28)
+
+    hover_surface = pygame.Surface((width, height), pygame.SRCALPHA)
     tools_label_surface = toolbox_font.render("Tools", True, pygame.Color("#000000"))
     colors_label_surface = toolbox_font.render("Colors", True, pygame.Color("#000000"))
-
-    # ================================================
-    #              Define Actual Buttons
-    # ================================================
-
-    undo_button = UIButton(
-        relative_rect=undo_button_rect,
-        text="",
-        manager=manager,
-        object_id="#undo_button",
-    )
-    undo_button.disable()
-
-    redo_button = UIButton(
-        relative_rect=redo_button_rect,
-        text="",
-        manager=manager,
-        object_id="#redo_button",
-    )
-    redo_button.disable()
-
-    clear_button = UIButton(
-        relative_rect=clear_button_rect,
-        text="",
-        manager=manager,
-        object_id="#clear_button",
-    )
-
-    erase_button = UIButton(
-        relative_rect=erase_button_rect,
-        text="",
-        manager=manager,
-        object_id="#eraser_button",
-    )
-
-    circle_brush_button = UIButton(
-        relative_rect=circle_brush_button_rect,
-        text="",
-        manager=manager,
-        object_id="#circle_brush_button",
-    )
-
-    image_brush_button = UIButton(
-        relative_rect=image_brush_button_rect,
-        text="",
-        manager=manager,
-        object_id="#image_brush_button",
-    )
-
-    # tutorial_button = UIButton(
-    #     relative_rect=tutorial_button_rect, text="Tutorial", manager=manager
-    # )
-
-    save_button = UIButton(relative_rect=save_rect, text="Save", manager=manager)
-    # with open(BASE_DIR / "tutorial.html", "r") as file:
-    #     tutorial_content = file.read()
-
-    # tutorial_box = UITextBox(
-    #     tutorial_content, tutorial_rect, manager=manager, visible=0
-    # )
 
     # ================================================
     #              Helper Functions
     # ================================================
 
     def clear_canvas():
+        """
+        Function called when the clear button is pressed.
+
+        Clears the canves and allows to undo
+        """
+        nonlocal game_manager
         nonlocal current_state
 
-        canvas.fill(pygame.Color("#ffffff"))
+        game_manager.canvas.fill(pygame.Color("#ffffff"))
 
-        current_state = push_canvas_state(canvas_states, current_state, canvas)
+        current_state = push_canvas_state(canvas_states, current_state, game_manager.canvas)
 
-        undo_button.enable()
-        redo_button.disable()
+        GAME_BUTTONS["undo"].enable()
+        GAME_BUTTONS["redo"].disable()
 
     def is_over_ui(pos):
+        """
+        Returns True if the position is on a Button of the scene
+        """
         if (
-            slider_rect.collidepoint(pos)
-            or erase_button_rect.collidepoint(pos)
-            or undo_button_rect.collidepoint(pos)
-            or redo_button_rect.collidepoint(pos)
-            or clear_button_rect.collidepoint(pos)
-            or circle_brush_button_rect.collidepoint(pos)
-            or image_brush_button_rect.collidepoint(pos)
-            # or tutorial_button_rect.collidepoint(pos)
-            or save_rect.collidepoint(pos)
+            GAME_RECTS["slider"].collidepoint(pos)
+            or GAME_RECTS["erase"].collidepoint(pos)
+            or GAME_RECTS["undo"].collidepoint(pos)
+            or GAME_RECTS["redo"].collidepoint(pos)
+            or GAME_RECTS["clear"].collidepoint(pos)
+            or GAME_RECTS["circle_brush"].collidepoint(pos)
+            or GAME_RECTS["image_brush"].collidepoint(pos)
+            or GAME_RECTS["save"].collidepoint(pos)
         ):
             return True
 
-        for rect in color_button_rects:
+        for index in range(len(COLORS)):
+            rect = GAME_RECTS[f"color_{index}"]
             if rect.collidepoint(pos):
                 return True
-
-        # if tutorial_box.visible and tutorial_rect.collidepoint(pos):
-        #     return True
 
         return False
 
     def get_hovered_element(pos):
-        """Return the UI element underneath the Kinect cursor."""
-
+        """
+        Return the UI element underneath the Kinect cursor.
+        """
         popup_elements = []
 
         if confirmation_dialog is not None:
@@ -365,29 +382,23 @@ def main():
             candidates = popup_elements
         else:
             candidates = [
-                undo_button if undo_button.is_enabled else None,
-                redo_button if redo_button.is_enabled else None,
-                clear_button,
-                circle_brush_button,
-                image_brush_button,
-                erase_button,
-                # tutorial_button,
-                save_button,
+                GAME_BUTTONS["undo"] if GAME_BUTTONS["undo"].is_enabled else None,
+                GAME_BUTTONS["redo"] if GAME_BUTTONS["redo"].is_enabled else None,
+                GAME_BUTTONS["clear"],
+                GAME_BUTTONS["circle_brush"],
+                GAME_BUTTONS["image_brush"],
+                GAME_BUTTONS["erase"],
+                GAME_BUTTONS["save"],
             ]
 
-            candidates += color_buttons
+            for index in range(len(COLORS)):
+                candidates.append(GAME_BUTTONS[f"color_{index}"])
 
         for element in candidates:
             if element is not None and element.rect.collidepoint(pos):
                 return element
 
         return None
-
-    def select_color(color):
-        nonlocal selected_color, drawing_color
-
-        selected_color = pygame.Color(color)
-        drawing_color = pygame.Color(selected_color)
 
     def activate_element(element):
         pygame.event.post(
@@ -401,7 +412,9 @@ def main():
         )
 
     def update_slider_from_point(pos):
-        """Move the brush-size slider's handle to follow a point's x position."""
+        """
+        Move the brush-size slider's handle to follow a point's x position.
+        """
 
         slider_x = slider.getX()
         slider_width = slider.getWidth()
@@ -415,7 +428,6 @@ def main():
         slider.setValue(value)
 
     def close_confirmation():
-
         nonlocal confirmation_dialog
 
         confirmation_dialog = None
@@ -494,7 +506,7 @@ def main():
             position = (x, y)
 
             if brush_type == "circle":
-                pygame.draw.circle(canvas, drawing_color, position, drawing_size)
+                pygame.draw.circle(canvas, game_manger.drawing_color, position, drawing_size)
             elif brush_type == "image":
                 draw_image_brush(position, drawing_size)
 
@@ -536,7 +548,6 @@ def main():
         any_popup_open = (
             confirmation_dialog is not None
             or email_window is not None
-            # or tutorial_box.visible
         )
         coord = image_subscriber.latest_coord
         drawing_size = max(1, int(slider.getValue()))
@@ -546,8 +557,7 @@ def main():
         # ============================================================
         # Kinect interaction
         # ============================================================
-
-        if len(coord) != 0 and coord != last_coord:
+        if len(coord) != 0 and coord != last_coord: # Received an input
             current_time = time.monotonic()
 
             if (
@@ -562,7 +572,6 @@ def main():
             any_popup_open = (
                 confirmation_dialog is not None
                 or email_window is not None
-                # or tutorial_box.visible
             )
 
             # --------------------------------------------------------
@@ -581,20 +590,14 @@ def main():
                 # ----------------------------------------------------
                 # Find what the Kinect cursor is hovering
                 # ----------------------------------------------------
-
                 new_hovered_element = get_hovered_element(coord)
-
-                # Update hover state even when we are NOT touching.
                 hovered_element = new_hovered_element
 
                 # ----------------------------------------------------
                 # Button pressing
                 # ----------------------------------------------------
-
                 if is_touching:
                     if hovered_element is not None:
-                        # Only trigger once when the finger first touches
-                        # a button.
                         if pressed_element is not hovered_element:
                             pressed_element = hovered_element
                             activate_element(hovered_element)
@@ -613,7 +616,6 @@ def main():
 
                 else:
                     # Finger is NOT touching the table.
-                    # Therefore nothing gets activated.
                     pressed_element = None
 
                     # If hovering a button, don't draw.
@@ -629,7 +631,6 @@ def main():
                         is_drawing = False
 
         else:
-            # No new Kinect coordinate.
             # Don't repeatedly press anything.
             if not is_touching:
                 pressed_element = None
@@ -642,24 +643,29 @@ def main():
             is_drawing = False
             last_pos = None
 
+        # ===============================================
+        # Handle Event Interactions
+        # ===============================================
         events = pygame.event.get()
-
         for event in events:
-            manager.process_events(event)
+            game_manager.manager.process_events(event)
 
             if event.type == pygame.QUIT:
                 running = False
 
+
+            # ===============================================
+            # Mouse Interaction
+            # ===============================================
+            # Still needed for the save button
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if (
                     not is_over_ui(event.pos)
                     and confirmation_dialog is None
-                    # and not tutorial_box.visible
                     and email_window is None
                 ):
                     is_drawing = True
                     last_pos = event.pos
-
             if event.type == pygame.MOUSEBUTTONUP:
                 if stroke_dirty:
                     current_state = push_canvas_state(
@@ -673,79 +679,79 @@ def main():
                 last_pos = None
                 stroke_dirty = False
 
+
+            # ===============================================
+            # Close Windows
+            # ===============================================
             if event.type == pygame_gui.UI_WINDOW_CLOSE:
                 if event.ui_element == confirmation_dialog:
                     confirmation_dialog = None
 
-                #       if event.ui_element == challenge_window:
-                #          challenge_window = None
-
                 if event.ui_element == email_window:
                     email_window = None
 
+
+            # ===============================================
+            # Button Interaction
+            # ===============================================
             if event.type == pygame_gui.UI_BUTTON_PRESSED:
-                for index, button in enumerate(color_buttons):
+                for index in range(len(COLORS)):
+                    button = GAME_BUTTONS[f"color_{index}"]
                     if event.ui_element == button:
                         _, color_hex = COLORS[index]
-                        select_color(color_hex)
+                        select_color(game_manager, color_hex)
                         break
 
-                if event.ui_element == clear_button and confirmation_dialog is None:
+                if event.ui_element == GAME_BUTTONS["clear"] and confirmation_dialog is None:
                     confirmation_dialog = ClearConfirmationWindow(
                         pygame.Rect(width // 2 - 300, height // 2 - 175, 600, 350),
-                        manager=manager,
+                        manager=game_manager.manager,
                         on_confirm=clear_canvas,
                         on_close=close_confirmation,
                     )
 
-                if event.ui_element == circle_brush_button:
+                if event.ui_element == GAME_BUTTONS["circle_brush"]:
                     brush_type = "circle"
                     selected_tool = "circle"
-                    drawing_color = pygame.Color(selected_color)
+                    game_manager.drawing_color = pygame.Color(game_manager.selected_color)
 
-                if event.ui_element == image_brush_button:
+                if event.ui_element == GAME_BUTTONS["image_brush"]:
                     brush_type = "image"
                     selected_tool = "image"
-                    drawing_color = pygame.Color(selected_color)
+                    game_manager.drawing_color = pygame.Color(game_manager.selected_color)
 
-                if event.ui_element == erase_button:
+                if event.ui_element == GAME_BUTTONS["erase"]:
                     selected_tool = "eraser"
                     brush_type = "circle"
-                    drawing_color = pygame.Color("#ffffff")
+                    game_manager.drawing_color = pygame.Color("#ffffff")
 
-                # if event.ui_element == tutorial_button:
-                #     if tutorial_box.visible:
-                #         tutorial_box.hide()
-                #     else:
-                #         tutorial_box.show()
-
-                if event.ui_element == undo_button:
+                if event.ui_element == GAME_BUTTONS["undo"]:
                     if current_state > 0:
                         current_state -= 1
 
                         canvas = canvas_states[current_state].copy()
 
-                        redo_button.enable()
+                        GAME_BUTTONS["redo"].enable()
 
                         if current_state == 0:
-                            undo_button.disable()
+                            GAME_BUTTONS["undo"].disable()
 
-                if event.ui_element == redo_button:
+                if event.ui_element == GAME_BUTTONS["redo"]:
                     if current_state < len(canvas_states) - 1:
                         current_state += 1
 
                         canvas = canvas_states[current_state].copy()
 
-                        undo_button.enable()
+                        GAME_BUTTONS["undo"].enable()
 
                         if current_state == len(canvas_states) - 1:
-                            redo_button.disable()
+                            GAME_BUTTONS["redo"].disable()
 
-                if event.ui_element == save_button and email_window is None:
+                if event.ui_element == GAME_BUTTONS["save"] and email_window is None:
                     save_canvas()
                     email_window = EmailWindow(
                         pygame.Rect(width // 2 - 220, height // 2 - 110, 440, 220),
-                        manager=manager,
+                        manager=game_manager.manager,
                         on_send=send_current_canvas,
                         on_close=close_email_window,
                     )
@@ -759,7 +765,7 @@ def main():
                 if last_pos is None:
                     if brush_type == "circle":
                         pygame.draw.circle(
-                            canvas, drawing_color, current_pos, drawing_size
+                            canvas, game_manager.drawing_color, current_pos, drawing_size
                         )
                     elif brush_type == "image":
                         draw_image_brush(current_pos, drawing_size)
@@ -775,8 +781,8 @@ def main():
         if not is_drawing and stroke_dirty:
             current_state = push_canvas_state(canvas_states, current_state, canvas)
 
-            undo_button.enable()
-            redo_button.disable()
+            GAME_BUTTONS["undo"].enable()
+            GAME_BUTTONS["redo"].disable()
 
             stroke_dirty = False
             last_pos = current_pos
@@ -784,23 +790,23 @@ def main():
         screen.blit(canvas, (0, 0))
         screen.blit(hover_surface, (0, 0))
 
-        manager.update(dt)
-        manager.draw_ui(screen)
+        game_manager.manager.update(dt)
+        game_manager.manager.draw_ui(screen)
 
         # ============================================================
         # Bounding boxes for tool / color groups
         # ============================================================
 
-        pygame.draw.rect(screen, pygame.Color("#303030"), left_toolbox_rect, width=2, border_radius=8)
+        pygame.draw.rect(screen, pygame.Color("#303030"), GAME_RECTS["left_toolbox"], width=2, border_radius=8)
         screen.blit(
             tools_label_surface,
-            tools_label_surface.get_rect(midbottom=(left_toolbox_rect.centerx, left_toolbox_rect.top - 6)),
+            tools_label_surface.get_rect(midbottom=(GAME_RECTS["left_toolbox"].centerx, GAME_RECTS["left_toolbox"].top - 6)),
         )
 
-        pygame.draw.rect(screen, pygame.Color("#303030"), right_toolbox_rect, width=2, border_radius=8)
+        pygame.draw.rect(screen, pygame.Color("#303030"), GAME_RECTS["right_toolbox"], width=2, border_radius=8)
         screen.blit(
             colors_label_surface,
-            colors_label_surface.get_rect(midbottom=(right_toolbox_rect.centerx, right_toolbox_rect.top - 6)),
+            colors_label_surface.get_rect(midbottom=(GAME_RECTS["right_toolbox"].centerx, GAME_RECTS["right_toolbox"].top - 6)),
         )
 
         # ============================================================
@@ -808,14 +814,14 @@ def main():
         # ============================================================
 
         for index, (name, color_hex) in enumerate(COLORS):
-            rect = color_button_rects[index]
+            rect = GAME_RECTS[f"color_{index}"]
             color = pygame.Color(color_hex)
 
-            is_hovered = hovered_element is color_buttons[index]
-            is_pressed = pressed_element is color_buttons[index]
+            is_hovered = hovered_element is GAME_RECTS[f"color_{index}"]
+            is_pressed = pressed_element is GAME_RECTS[f"color_{index}"]
 
             # Selected color gets a stronger border.
-            is_selected = color == selected_color
+            is_selected = color == game_manager.selected_color
 
             if is_pressed:
                 border_color = pygame.Color("#ffffff")
@@ -885,9 +891,9 @@ def main():
         # ============================================================
 
         tool_buttons = [
-            ("CIRCLE", circle_brush_button, circle_brush_button_rect, "circle"),
-            ("", image_brush_button, image_brush_button_rect, "image"),
-            ("", erase_button, erase_button_rect, "eraser"),
+            ("CIRCLE", GAME_BUTTONS["circle_brush"], GAME_RECTS["circle_brush"], "circle"),
+            ("", GAME_BUTTONS["image_brush"], GAME_RECTS["image_brush"], "image"),
+            ("", GAME_BUTTONS["erase"], GAME_RECTS["erase"], "eraser"),
         ]
 
         tool_font = pygame.font.Font(None, 26)
@@ -958,11 +964,9 @@ def main():
             )
 
         # ============================================================
-        # Kinect cursor — MUST BE LAST
+        # Kinect cursor
         # ============================================================
-
         hover_surface.fill((0, 0, 0, 0))
-
         if len(coord) > 0:
             hover_pos = (int(coord[0]), int(coord[1]))
 
@@ -995,16 +999,21 @@ def main():
             )
 
         pygame_widgets.update(events)
-        trash_icon_rect = trash_icon.get_rect(center=trash_icon_rect.center)
-        screen.blit(trash_icon, trash_icon_rect)
-        epita_icon_rect = epita_icon.get_rect(center=epita_icon_rect.center)
-        screen.blit(epita_icon, epita_icon_rect)
-        erase_icon_rect = eraser_icon.get_rect(center=erase_icon_rect.center)
-        screen.blit(eraser_icon, erase_icon_rect)
+
+        trash_icon_rect = GAME_RECTS["trash_icon"]
+        epita_icon_rect = GAME_RECTS["epita_icon"]
+        erase_icon_rect = GAME_RECTS["erase_icon"]
+        trash_icon_rect = ICONS["trash"].get_rect(center=trash_icon_rect.center)
+        screen.blit(ICONS["trash"], trash_icon_rect)
+        epita_icon_rect = ICONS["epita"].get_rect(center=epita_icon_rect.center)
+        screen.blit(ICONS["epita"], epita_icon_rect)
+        erase_icon_rect = ICONS["eraser"].get_rect(center=erase_icon_rect.center)
+        screen.blit(ICONS["eraser"], erase_icon_rect)
+
         screen.blit(hover_surface, (0, 0))
         pygame.display.flip()
 
-        dt = clock.tick(60) / 1000
+        dt = game_manager.clock.tick(60) / 1000
 
     pygame.quit()
 
