@@ -7,23 +7,22 @@ BASE_DIR = Path(__file__).resolve().parent
 sign_dir = BASE_DIR / "signs"
 from datetime import datetime
 
+import image_subscriber
 import pygame
 import pygame_gui
 import pygame_widgets
+from clearwindow import ClearConfirmationWindow
+from emailwindow import EmailWindow
 from pygame_gui.elements import UIButton, UITextBox
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
-
-import image_subscriber
-from clearwindow import ClearConfirmationWindow
-from emailwindow import EmailWindow
 from send_email import send_canvas_by_email
 
 BUTTON_WIDTH = 80
 BUTTON_HEIGHT = 50
 COLOR_BUTTON_WIDTH = BUTTON_WIDTH
 COLOR_BUTTON_HEIGHT = 50
-UNDO_WIDTH= 80
+UNDO_WIDTH = 80
 TOOLBOX_PADDING = 20
 TOOLBOX_FACTOR = 1.2
 MAX_HISTORY = 20  # how many undo/redos are possible
@@ -41,23 +40,30 @@ COLORS = [
     ("M", "#ff00ff"),
 ]
 
-class GameManager():
+
+class GameManager:
     def __init__(self, width, height):
         self.width = width
         self.height = height
         self.clock = pygame.time.Clock()
         self.screen = pygame.display.set_mode((width, height))
-        self.manager = pygame_gui.UIManager((width, height), theme_path=BASE_DIR / "theme.json")
+        self.manager = pygame_gui.UIManager(
+            (width, height), theme_path=BASE_DIR / "theme.json"
+        )
         self.canvas = pygame.Surface((width, height))
         self.canvas.fill(pygame.Color("#ffffff"))
         self.selected_color = pygame.Color("#000000")
         self.drawing_color = pygame.Color(self.selected_color)
 
+
 def select_color(game_manager, color):
     game_manager.selected_color = pygame.Color(color)
     game_manager.drawing_color = pygame.Color(game_manager.selected_color)
 
+
 GAME_BUTTONS = {}
+
+
 def load_game_buttons(game_manager):
     global GAME_BUTTONS
     GAME_BUTTONS["undo"] = UIButton(
@@ -105,9 +111,7 @@ def load_game_buttons(game_manager):
     )
 
     GAME_BUTTONS["save"] = UIButton(
-        relative_rect=GAME_RECTS["save"],
-        text="Save",
-        manager=game_manager.manager
+        relative_rect=GAME_RECTS["save"], text="Save", manager=game_manager.manager
     )
 
     for index, (name, _) in enumerate(COLORS):
@@ -120,43 +124,37 @@ def load_game_buttons(game_manager):
 
         GAME_BUTTONS[f"color_{index}"] = button
 
+
 GAME_RECTS = {}
+
+
 def load_bounding_boxes(width, height):
     global GAME_RECTS
 
     GAME_RECTS["slider"] = pygame.Rect(
-        BUTTON_WIDTH + 10 + 10,
-        10,
-        width - 2 * BUTTON_WIDTH - 40,
-        BUTTON_HEIGHT
+        BUTTON_WIDTH + 10 + 10, 10, width - 2 * BUTTON_WIDTH - 40, BUTTON_HEIGHT
     )
 
     GAME_RECTS["undo"] = pygame.Rect(
         width // 2 - 10 - UNDO_WIDTH,
         height - BUTTON_HEIGHT - 10,
         UNDO_WIDTH,
-        BUTTON_HEIGHT
+        BUTTON_HEIGHT,
     )
 
     GAME_RECTS["redo"] = pygame.Rect(
-        width // 2 + 10,
-        height - BUTTON_HEIGHT - 10,
-        UNDO_WIDTH,
-        BUTTON_HEIGHT
+        width // 2 + 10, height - BUTTON_HEIGHT - 10, UNDO_WIDTH, BUTTON_HEIGHT
     )
 
     GAME_RECTS["clear"] = pygame.Rect(
         width - 2 * BUTTON_WIDTH - 10,
         height - BUTTON_HEIGHT - 10,
         2 * BUTTON_WIDTH,
-        BUTTON_HEIGHT
+        BUTTON_HEIGHT,
     )
 
     GAME_RECTS["save"] = pygame.Rect(
-        10,
-        height - BUTTON_HEIGHT - 10,
-        2 * BUTTON_WIDTH,
-        BUTTON_HEIGHT
+        10, height - BUTTON_HEIGHT - 10, 2 * BUTTON_WIDTH, BUTTON_HEIGHT
     )
 
     GAME_RECTS["circle_brush"] = pygame.Rect(
@@ -195,15 +193,18 @@ def load_bounding_boxes(width, height):
     )
 
     GAME_RECTS["trash_icon"] = pygame.Rect(
-        width - BUTTON_WIDTH - 10 - 10,
-        height - BUTTON_HEIGHT // 2 - 20,
-        20,
-        20
+        width - BUTTON_WIDTH - 10 - 10, height - BUTTON_HEIGHT // 2 - 20, 20, 20
     )
 
-    left_tool_rects = [GAME_RECTS["circle_brush"], GAME_RECTS["image_brush"], GAME_RECTS["erase"]]
-    left_toolbox_rect = left_tool_rects[0].unionall(left_tool_rects[1:]).inflate(
-        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
+    left_tool_rects = [
+        GAME_RECTS["circle_brush"],
+        GAME_RECTS["image_brush"],
+        GAME_RECTS["erase"],
+    ]
+    left_toolbox_rect = (
+        left_tool_rects[0]
+        .unionall(left_tool_rects[1:])
+        .inflate(TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2)
     )
     left_toolbox_rect.left = max(0, left_toolbox_rect.left)
 
@@ -220,17 +221,24 @@ def load_bounding_boxes(width, height):
         GAME_RECTS[f"color_{index}"] = rect
         color_button_rects.append(rect)
 
-    right_toolbox_rect = color_button_rects[0].unionall(color_button_rects[1:]).inflate(
-        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
+    right_toolbox_rect = (
+        color_button_rects[0]
+        .unionall(color_button_rects[1:])
+        .inflate(TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2)
     )
     right_toolbox_rect.right = min(width, right_toolbox_rect.right)
 
     GAME_RECTS["left_toolbox"] = left_toolbox_rect
     GAME_RECTS["right_toolbox"] = right_toolbox_rect
 
+
 ICONS = {}
+
+raw_baptiste = None
+
+
 def load_icons():
-    global ICONS
+    global ICONS, raw_baptiste
     raw_baptiste = pygame.image.load(sign_dir / "baptiste.png").convert_alpha()
     ICONS["epita"] = pygame.transform.smoothscale(raw_baptiste, (60, 40))
 
@@ -256,6 +264,7 @@ def push_canvas_state(states, index, canvas):
         index -= 1
 
     return index + 1
+
 
 def main():
     # ================================================
@@ -328,12 +337,14 @@ def main():
 
         Clears the canves and allows to undo
         """
-        nonlocal game_manager
+        nonlocal canvas
         nonlocal current_state
 
-        game_manager.canvas.fill(pygame.Color("#ffffff"))
+        canvas.fill(pygame.Color("#ffffff"))
 
-        current_state = push_canvas_state(canvas_states, current_state, game_manager.canvas)
+        current_state = push_canvas_state(
+            canvas_states, current_state, game_manager.canvas
+        )
 
         GAME_BUTTONS["undo"].enable()
         GAME_BUTTONS["redo"].disable()
@@ -509,7 +520,9 @@ def main():
             position = (x, y)
 
             if brush_type == "circle":
-                pygame.draw.circle(canvas, game_manger.drawing_color, position, drawing_size)
+                pygame.draw.circle(
+                    canvas, game_manager.drawing_color, position, drawing_size
+                )
             elif brush_type == "image":
                 draw_image_brush(position, drawing_size)
 
@@ -548,10 +561,7 @@ def main():
     hovered_element = None
     pressed_element = None
     while running:
-        any_popup_open = (
-            confirmation_dialog is not None
-            or email_window is not None
-        )
+        any_popup_open = confirmation_dialog is not None or email_window is not None
         coord = image_subscriber.latest_coord
         drawing_size = max(1, int(slider.getValue()))
 
@@ -560,7 +570,7 @@ def main():
         # ============================================================
         # Kinect interaction
         # ============================================================
-        if len(coord) != 0 and coord != last_coord: # Received an input
+        if len(coord) != 0 and coord != last_coord:  # Received an input
             current_time = time.monotonic()
 
             if (
@@ -572,16 +582,13 @@ def main():
             last_coord = coord
             previous_point = current_time
 
-            any_popup_open = (
-                confirmation_dialog is not None
-                or email_window is not None
-            )
+            any_popup_open = confirmation_dialog is not None or email_window is not None
 
             # --------------------------------------------------------
             # Slider
             # --------------------------------------------------------
 
-            if not any_popup_open and slider_rect.collidepoint(coord):
+            if not any_popup_open and GAME_RECTS["slider"].collidepoint(coord):
                 update_slider_from_point(coord)
 
                 hovered_element = None
@@ -656,7 +663,6 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
-
             # ===============================================
             # Mouse Interaction
             # ===============================================
@@ -675,13 +681,12 @@ def main():
                         canvas_states, current_state, canvas
                     )
 
-                    undo_button.enable()
-                    redo_button.disable()
+                    GAME_BUTTONS["undo"].enable()
+                    GAME_BUTTONS["redo"].disable()
 
                 is_drawing = False
                 last_pos = None
                 stroke_dirty = False
-
 
             # ===============================================
             # Close Windows
@@ -692,7 +697,6 @@ def main():
 
                 if event.ui_element == email_window:
                     email_window = None
-
 
             # ===============================================
             # Button Interaction
@@ -705,7 +709,10 @@ def main():
                         select_color(game_manager, color_hex)
                         break
 
-                if event.ui_element == GAME_BUTTONS["clear"] and confirmation_dialog is None:
+                if (
+                    event.ui_element == GAME_BUTTONS["clear"]
+                    and confirmation_dialog is None
+                ):
                     confirmation_dialog = ClearConfirmationWindow(
                         pygame.Rect(width // 2 - 300, height // 2 - 175, 600, 350),
                         manager=game_manager.manager,
@@ -716,12 +723,16 @@ def main():
                 if event.ui_element == GAME_BUTTONS["circle_brush"]:
                     brush_type = "circle"
                     selected_tool = "circle"
-                    game_manager.drawing_color = pygame.Color(game_manager.selected_color)
+                    game_manager.drawing_color = pygame.Color(
+                        game_manager.selected_color
+                    )
 
                 if event.ui_element == GAME_BUTTONS["image_brush"]:
                     brush_type = "image"
                     selected_tool = "image"
-                    game_manager.drawing_color = pygame.Color(game_manager.selected_color)
+                    game_manager.drawing_color = pygame.Color(
+                        game_manager.selected_color
+                    )
 
                 if event.ui_element == GAME_BUTTONS["erase"]:
                     selected_tool = "eraser"
@@ -768,7 +779,10 @@ def main():
                 if last_pos is None:
                     if brush_type == "circle":
                         pygame.draw.circle(
-                            canvas, game_manager.drawing_color, current_pos, drawing_size
+                            canvas,
+                            game_manager.drawing_color,
+                            current_pos,
+                            drawing_size,
                         )
                     elif brush_type == "image":
                         draw_image_brush(current_pos, drawing_size)
@@ -800,16 +814,38 @@ def main():
         # Bounding boxes for tool / color groups
         # ============================================================
 
-        pygame.draw.rect(screen, pygame.Color("#303030"), GAME_RECTS["left_toolbox"], width=2, border_radius=8)
+        pygame.draw.rect(
+            screen,
+            pygame.Color("#303030"),
+            GAME_RECTS["left_toolbox"],
+            width=2,
+            border_radius=8,
+        )
         screen.blit(
             tools_label_surface,
-            tools_label_surface.get_rect(midbottom=(GAME_RECTS["left_toolbox"].centerx, GAME_RECTS["left_toolbox"].top - 6)),
+            tools_label_surface.get_rect(
+                midbottom=(
+                    GAME_RECTS["left_toolbox"].centerx,
+                    GAME_RECTS["left_toolbox"].top - 6,
+                )
+            ),
         )
 
-        pygame.draw.rect(screen, pygame.Color("#303030"), GAME_RECTS["right_toolbox"], width=2, border_radius=8)
+        pygame.draw.rect(
+            screen,
+            pygame.Color("#303030"),
+            GAME_RECTS["right_toolbox"],
+            width=2,
+            border_radius=8,
+        )
         screen.blit(
             colors_label_surface,
-            colors_label_surface.get_rect(midbottom=(GAME_RECTS["right_toolbox"].centerx, GAME_RECTS["right_toolbox"].top - 6)),
+            colors_label_surface.get_rect(
+                midbottom=(
+                    GAME_RECTS["right_toolbox"].centerx,
+                    GAME_RECTS["right_toolbox"].top - 6,
+                )
+            ),
         )
 
         # ============================================================
@@ -894,7 +930,12 @@ def main():
         # ============================================================
 
         tool_buttons = [
-            ("CIRCLE", GAME_BUTTONS["circle_brush"], GAME_RECTS["circle_brush"], "circle"),
+            (
+                "CIRCLE",
+                GAME_BUTTONS["circle_brush"],
+                GAME_RECTS["circle_brush"],
+                "circle",
+            ),
             ("", GAME_BUTTONS["image_brush"], GAME_RECTS["image_brush"], "image"),
             ("", GAME_BUTTONS["erase"], GAME_RECTS["erase"], "eraser"),
         ]
