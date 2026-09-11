@@ -7,15 +7,16 @@ BASE_DIR = Path(__file__).resolve().parent
 sign_dir = BASE_DIR / "signs"
 from datetime import datetime
 
-import image_subscriber
 import pygame
 import pygame_gui
 import pygame_widgets
-from clearwindow import ClearConfirmationWindow
-from emailwindow import EmailWindow
 from pygame_gui.elements import UIButton, UITextBox
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
+
+import image_subscriber
+from clearwindow import ClearConfirmationWindow
+from emailwindow import EmailWindow
 from send_email import send_canvas_by_email
 
 BUTTON_WIDTH = 80
@@ -376,6 +377,8 @@ def main():
         if email_window is not None:
             popup_elements += [
                 email_window.close_window_button,
+                email_window.send_button,
+                email_window.cancel_button,
             ]
 
         if popup_elements:

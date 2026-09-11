@@ -1,6 +1,7 @@
 import pygame
 import pygame_gui
 
+
 class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
     """Confirmation window shown before clearing the canvas."""
 
@@ -10,7 +11,7 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
             manager=manager,
             window_display_title="Confirm Clear",
             resizable=False,
-            draggable=True
+            draggable=True,
         )
 
         self.on_confirm = on_confirm
@@ -19,45 +20,29 @@ class ClearConfirmationWindow(pygame_gui.elements.UIWindow):
         container = self.get_container()
 
         pygame_gui.elements.UILabel(
-            relative_rect=pygame.Rect(
-                30,
-                30,
-                rect.width - 60,
-                70
-            ),
+            relative_rect=pygame.Rect(30, 30, rect.width - 60, 70),
             text="Are you sure you want to clear the canvas?",
             manager=manager,
-            container=container
+            container=container,
         )
 
         self.confirm_button = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(
-                30,
-                120,
-                rect.width - 60,
-                55
-            ),
+            relative_rect=pygame.Rect(30, 120, rect.width - 60, 55),
             text="CLEAR",
             manager=manager,
-            container=container
+            container=container,
         )
 
         self.cancel_button = pygame_gui.elements.UIButton(
-            relative_rect=pygame.Rect(
-                30,
-                190,
-                rect.width - 60,
-                55
-            ),
+            relative_rect=pygame.Rect(30, 190, rect.width - 60, 55),
             text="CANCEL",
             manager=manager,
-            container=container
+            container=container,
         )
 
     def process_event(self, event):
 
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-
             if event.ui_element == self.confirm_button:
                 self.on_confirm()
                 self.on_close()

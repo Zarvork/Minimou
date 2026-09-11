@@ -13,7 +13,7 @@ class EmailWindow(pygame_gui.elements.UIWindow):
         )
 
         self.on_send = on_send
-        self.on_close_callback = on_close
+        self.on_close = on_close
 
         container = self.get_container()
 
@@ -48,11 +48,13 @@ class EmailWindow(pygame_gui.elements.UIWindow):
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             if event.ui_element == self.send_button:
                 self.on_send(self.email_entry.get_text())
+                self.on_close()
+                self.kill()
                 return True
 
             if event.ui_element == self.cancel_button:
+                self.on_close()
                 self.kill()
-                self.on_close_callback()
                 return True
 
         return super().process_event(event)
