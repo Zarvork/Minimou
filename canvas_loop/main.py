@@ -7,15 +7,16 @@ BASE_DIR = Path(__file__).resolve().parent
 sign_dir = BASE_DIR / "signs"
 from datetime import datetime
 
-import image_subscriber
 import pygame
 import pygame_gui
 import pygame_widgets
-from clearwindow import ClearConfirmationWindow
-from emailwindow import EmailWindow
 from pygame_gui.elements import UIButton, UITextBox
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
+
+import image_subscriber
+from clearwindow import ClearConfirmationWindow
+from emailwindow import EmailWindow
 from send_email import send_canvas_by_email
 
 BUTTON_WIDTH = 80
@@ -123,14 +124,19 @@ def main():
     #              Define Bouding Rects
     # ================================================
 
-    slider_rect = pygame.Rect(BUTTON_WIDTH + 10 + 10, 10, width - 2 * BUTTON_WIDTH - 40, BUTTON_HEIGHT)
+    slider_rect = pygame.Rect(
+        BUTTON_WIDTH + 10 + 10, 10, width - 2 * BUTTON_WIDTH - 40, BUTTON_HEIGHT
+    )
 
     # tutorial_button_rect = pygame.Rect(0, height - 50, 140, 50)
 
     # tutorial_rect = pygame.Rect(width // 2 - 350, height // 2 - 275, 700, 550)
 
     undo_button_rect = pygame.Rect(
-        width // 2 - 10 - undo_width, height - BUTTON_HEIGHT - 10, undo_width, BUTTON_HEIGHT
+        width // 2 - 10 - undo_width,
+        height - BUTTON_HEIGHT - 10,
+        undo_width,
+        BUTTON_HEIGHT,
     )
 
     redo_button_rect = pygame.Rect(
@@ -155,7 +161,6 @@ def main():
     palette_y = 100
 
     for index, (name, color_hex) in enumerate(COLORS):
-
         rect = pygame.Rect(
             width - COLOR_BUTTON_WIDTH - 10,
             20 + (20 + COLOR_BUTTON_HEIGHT) * index,
@@ -175,7 +180,10 @@ def main():
         color_buttons.append(button)
 
     clear_button_rect = pygame.Rect(
-        width - BUTTON_WIDTH - 10, height - BUTTON_HEIGHT - 10, BUTTON_WIDTH, BUTTON_HEIGHT
+        width - BUTTON_WIDTH - 10,
+        height - BUTTON_HEIGHT - 10,
+        BUTTON_WIDTH,
+        BUTTON_HEIGHT,
     )
 
     save_rect = pygame.Rect(
@@ -232,14 +240,22 @@ def main():
     TOOLBOX_PADDING = 20
     TOOLBOX_FACTOR = 1.2
 
-    left_tool_rects = [circle_brush_button_rect, image_brush_button_rect, erase_button_rect]
-    left_toolbox_rect = left_tool_rects[0].unionall(left_tool_rects[1:]).inflate(
-        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
+    left_tool_rects = [
+        circle_brush_button_rect,
+        image_brush_button_rect,
+        erase_button_rect,
+    ]
+    left_toolbox_rect = (
+        left_tool_rects[0]
+        .unionall(left_tool_rects[1:])
+        .inflate(TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2)
     )
     left_toolbox_rect.left = max(0, left_toolbox_rect.left)
 
-    right_toolbox_rect = color_button_rects[0].unionall(color_button_rects[1:]).inflate(
-        TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2
+    right_toolbox_rect = (
+        color_button_rects[0]
+        .unionall(color_button_rects[1:])
+        .inflate(TOOLBOX_PADDING * TOOLBOX_FACTOR, TOOLBOX_PADDING * 2)
     )
     right_toolbox_rect.right = min(width, right_toolbox_rect.right)
 
@@ -359,6 +375,8 @@ def main():
         if email_window is not None:
             popup_elements += [
                 email_window.close_window_button,
+                email_window.send_button,
+                email_window.cancel_button,
             ]
 
         if popup_elements:
@@ -534,8 +552,7 @@ def main():
     pressed_element = None
     while running:
         any_popup_open = (
-            confirmation_dialog is not None
-            or email_window is not None
+            confirmation_dialog is not None or email_window is not None
             # or tutorial_box.visible
         )
         coord = image_subscriber.latest_coord
@@ -560,8 +577,7 @@ def main():
             previous_point = current_time
 
             any_popup_open = (
-                confirmation_dialog is not None
-                or email_window is not None
+                confirmation_dialog is not None or email_window is not None
                 # or tutorial_box.visible
             )
 
@@ -791,16 +807,28 @@ def main():
         # Bounding boxes for tool / color groups
         # ============================================================
 
-        pygame.draw.rect(screen, pygame.Color("#303030"), left_toolbox_rect, width=2, border_radius=8)
+        pygame.draw.rect(
+            screen, pygame.Color("#303030"), left_toolbox_rect, width=2, border_radius=8
+        )
         screen.blit(
             tools_label_surface,
-            tools_label_surface.get_rect(midbottom=(left_toolbox_rect.centerx, left_toolbox_rect.top - 6)),
+            tools_label_surface.get_rect(
+                midbottom=(left_toolbox_rect.centerx, left_toolbox_rect.top - 6)
+            ),
         )
 
-        pygame.draw.rect(screen, pygame.Color("#303030"), right_toolbox_rect, width=2, border_radius=8)
+        pygame.draw.rect(
+            screen,
+            pygame.Color("#303030"),
+            right_toolbox_rect,
+            width=2,
+            border_radius=8,
+        )
         screen.blit(
             colors_label_surface,
-            colors_label_surface.get_rect(midbottom=(right_toolbox_rect.centerx, right_toolbox_rect.top - 6)),
+            colors_label_surface.get_rect(
+                midbottom=(right_toolbox_rect.centerx, right_toolbox_rect.top - 6)
+            ),
         )
 
         # ============================================================
