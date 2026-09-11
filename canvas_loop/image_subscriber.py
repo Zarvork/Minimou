@@ -4,7 +4,6 @@ from pathlib import Path
 import cv2
 import numpy as np
 import zmq
-
 from aruco_detector import compute_canvas_homography
 from IndexDetector import IndexDetector
 
@@ -25,7 +24,7 @@ CANVAS_W, CANVAS_H = 1280, 720  # pygame canvas size
 DEPTH_MIN, DEPTH_MAX = 0, 2047
 
 # Tolérance en unités brutes Kinect.
-DEPTH_THRESHOLD = 40
+DEPTH_THRESHOLD = 30
 
 
 def scale_matrix(src_w, src_h, dst_w, dst_h):
