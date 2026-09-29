@@ -37,3 +37,14 @@ A Kinect, a projector and a table with the 4 markers are needed.
 - Finger detection is sensitive: fast movements and spread fingers can cause errors
 - Calibration sensitivity can be improved
 - Single user only.
+
+## Authors
+
+- Anis Feore
+- Lucil Finkelstein
+- Roman Miralves
+- Johan Emmanuelli
+- Alexis Meunier
+- Axel Gil
+- Julien Marnet
+- Martin Boulanger
