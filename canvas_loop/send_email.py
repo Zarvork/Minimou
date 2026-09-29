@@ -17,8 +17,8 @@ def send_canvas_by_email(canvas, recipient):
     # Save the current canvas
     pygame.image.save(canvas, filename)
 
-    sender = "mypaint.sender@gmail.com"
-    password = "baaz usly vieo nvrn"
+    sender = "TODO_mail"
+    password = "TODO_password"
 
     message = EmailMessage()
     message["Subject"] = "Your Pygame painting"
